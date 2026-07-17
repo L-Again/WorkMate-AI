@@ -1,14 +1,19 @@
 package com.workmate.ai.controller;
 
+import com.workmate.ai.exception.GlobalExceptionHandler;
+import com.workmate.ai.service.UserService;
+import com.workmate.ai.vo.CurrentUserVO;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.test.web.servlet.MockMvc;
-import com.workmate.ai.exception.GlobalExceptionHandler;
 import org.springframework.context.annotation.Import;
+import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.test.web.servlet.MockMvc;
 
-import static org.hamcrest.Matchers.nullValue;
 import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.nullValue;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -20,8 +25,14 @@ class UserControllerTest {
     @Autowired
     private MockMvc mockMvc;
 
+    @MockBean
+    private UserService userService;
+
     @Test
     void shouldReturnCurrentEmployeeWhenUserIdIsOne() throws Exception {
+        when(userService.getCurrentUser(1L))
+                .thenReturn(new CurrentUserVO(1L, "employee_demo", "演示员工", "EMPLOYEE", 1));
+
         mockMvc.perform(get("/api/users/current")
                         .header("X-User-Id", "1"))
                 .andExpect(status().isOk())
@@ -32,6 +43,8 @@ class UserControllerTest {
                 .andExpect(jsonPath("$.data.displayName", is("演示员工")))
                 .andExpect(jsonPath("$.data.role", is("EMPLOYEE")))
                 .andExpect(jsonPath("$.data.status", is(1)));
+
+        verify(userService).getCurrentUser(1L);
     }
 
     @Test

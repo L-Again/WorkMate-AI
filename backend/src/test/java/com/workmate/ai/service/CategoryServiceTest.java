@@ -17,7 +17,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.ArgumentCaptor;
-
+import com.workmate.ai.dto.CategoryStatusDTO;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -225,6 +225,44 @@ class CategoryServiceTest {
         verify(categoryMapper, never()).update(any(KnowledgeCategory.class), any(LambdaUpdateWrapper.class));
     }
 
+    @Test
+    void shouldUpdateCategoryStatusWhenUserIsAdmin() {
+        CategoryStatusDTO request = statusRequest(0);
+        when(sysUserMapper.selectById(2L)).thenReturn(user(2L, "ADMIN", 1));
+        when(categoryMapper.selectById(3L)).thenReturn(category(3L, "研发规范", 3, 1));
+
+        CategoryVO result = categoryService.updateCategoryStatus(2L, 3L, request);
+
+        assertThat(result.getId()).isEqualTo(3L);
+        assertThat(result.getStatus()).isEqualTo(0);
+        verify(categoryMapper).update(any(KnowledgeCategory.class), any(LambdaUpdateWrapper.class));
+    }
+
+    @Test
+    void shouldForbidEmployeeToUpdateCategoryStatus() {
+        CategoryStatusDTO request = statusRequest(0);
+        when(sysUserMapper.selectById(1L)).thenReturn(user(1L, "EMPLOYEE", 1));
+
+        assertThatThrownBy(() -> categoryService.updateCategoryStatus(1L, 3L, request))
+                .isInstanceOfSatisfying(BusinessException.class, exception ->
+                        assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.FORBIDDEN));
+
+        verify(categoryMapper, never()).update(any(KnowledgeCategory.class), any(LambdaUpdateWrapper.class));
+    }
+
+    @Test
+    void shouldReturnNotFoundWhenUpdatingMissingCategoryStatus() {
+        CategoryStatusDTO request = statusRequest(0);
+        when(sysUserMapper.selectById(2L)).thenReturn(user(2L, "ADMIN", 1));
+        when(categoryMapper.selectById(999L)).thenReturn(null);
+
+        assertThatThrownBy(() -> categoryService.updateCategoryStatus(2L, 999L, request))
+                .isInstanceOfSatisfying(BusinessException.class, exception ->
+                        assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.DATA_NOT_FOUND));
+
+        verify(categoryMapper, never()).update(any(KnowledgeCategory.class), any(LambdaUpdateWrapper.class));
+    }
+
     private SysUser user(Long id, String role, Integer status) {
         SysUser user = new SysUser();
         user.setId(id);
@@ -257,6 +295,12 @@ class CategoryServiceTest {
         request.setName(name);
         request.setDescription(description);
         request.setSortOrder(sortOrder);
+        return request;
+    }
+
+    private CategoryStatusDTO statusRequest(Integer status) {
+        CategoryStatusDTO request = new CategoryStatusDTO();
+        request.setStatus(status);
         return request;
     }
 

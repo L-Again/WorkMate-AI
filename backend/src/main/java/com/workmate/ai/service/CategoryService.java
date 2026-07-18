@@ -3,7 +3,7 @@ package com.workmate.ai.service;
 import com.workmate.ai.vo.CategoryVO;
 import com.workmate.ai.dto.CategoryCreateDTO;
 import com.workmate.ai.dto.CategoryUpdateDTO;
-
+import com.workmate.ai.dto.CategoryStatusDTO;
 import java.util.List;
 
 public interface CategoryService {
@@ -15,5 +15,7 @@ public interface CategoryService {
     CategoryVO createCategory(Long userId, CategoryCreateDTO request);
 
     CategoryVO updateCategory(Long userId, Long categoryId, CategoryUpdateDTO request);
+
+    CategoryVO updateCategoryStatus(Long userId, Long categoryId, CategoryStatusDTO request);
 
 }

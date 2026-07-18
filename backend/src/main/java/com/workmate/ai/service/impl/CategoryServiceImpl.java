@@ -14,6 +14,7 @@ import org.springframework.stereotype.Service;
 import com.workmate.ai.dto.CategoryUpdateDTO;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import java.util.List;
+import com.workmate.ai.dto.CategoryStatusDTO;
 
 @Service
 public class CategoryServiceImpl implements CategoryService {
@@ -157,4 +158,32 @@ public class CategoryServiceImpl implements CategoryService {
         return toVO(existingCategory);
     }
 
+    @Override
+    public CategoryVO updateCategoryStatus(Long userId, Long categoryId, CategoryStatusDTO request) {
+        SysUser user = sysUserMapper.selectById(userId);
+        if (user == null || !Integer.valueOf(ENABLED_STATUS).equals(user.getStatus())) {
+            throw new BusinessException(ErrorCode.USER_NOT_FOUND_OR_DISABLED);
+        }
+
+        if (!ADMIN_ROLE.equals(user.getRole())) {
+            throw new BusinessException(ErrorCode.FORBIDDEN);
+        }
+
+        KnowledgeCategory existingCategory = categoryMapper.selectById(categoryId);
+        if (existingCategory == null || !Integer.valueOf(NOT_DELETED).equals(existingCategory.getIsDeleted())) {
+            throw new BusinessException(ErrorCode.DATA_NOT_FOUND);
+        }
+
+        KnowledgeCategory updatedCategory = new KnowledgeCategory();
+        updatedCategory.setStatus(request.getStatus());
+
+        LambdaUpdateWrapper<KnowledgeCategory> updateWrapper = new LambdaUpdateWrapper<>();
+        updateWrapper.eq(KnowledgeCategory::getId, categoryId);
+        updateWrapper.eq(KnowledgeCategory::getIsDeleted, NOT_DELETED);
+
+        categoryMapper.update(updatedCategory, updateWrapper);
+
+        existingCategory.setStatus(request.getStatus());
+        return toVO(existingCategory);
+    }
 }

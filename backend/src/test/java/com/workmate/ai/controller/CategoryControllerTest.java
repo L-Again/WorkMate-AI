@@ -30,6 +30,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.http.MediaType.APPLICATION_JSON;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 
 @WebMvcTest(CategoryController.class)
 @Import(GlobalExceptionHandler.class)
@@ -160,6 +161,17 @@ class CategoryControllerTest {
                 .andExpect(jsonPath("$.code", is(200)))
                 .andExpect(jsonPath("$.data.id", is(3)))
                 .andExpect(jsonPath("$.data.status", is(0)));
+    }
+
+    @Test
+    void shouldDeleteCategoryWhenUserIsAdmin() throws Exception {
+        when(categoryService.deleteCategory(2L, 3L)).thenReturn(true);
+
+        mockMvc.perform(delete("/api/knowledge/categories/{id}", 3L)
+                        .header("X-User-Id", "2"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code", is(200)))
+                .andExpect(jsonPath("$.data", is(true)));
     }
 
 }

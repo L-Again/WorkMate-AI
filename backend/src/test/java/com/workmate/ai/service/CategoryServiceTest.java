@@ -263,6 +263,40 @@ class CategoryServiceTest {
         verify(categoryMapper, never()).update(any(KnowledgeCategory.class), any(LambdaUpdateWrapper.class));
     }
 
+    @Test
+    void shouldDeleteCategoryWhenUserIsAdmin() {
+        when(sysUserMapper.selectById(2L)).thenReturn(user(2L, "ADMIN", 1));
+        when(categoryMapper.selectById(3L)).thenReturn(category(3L, "研发规范", 3, 1));
+
+        Boolean result = categoryService.deleteCategory(2L, 3L);
+
+        assertThat(result).isTrue();
+        verify(categoryMapper).update(any(KnowledgeCategory.class), any(LambdaUpdateWrapper.class));
+    }
+
+    @Test
+    void shouldForbidEmployeeToDeleteCategory() {
+        when(sysUserMapper.selectById(1L)).thenReturn(user(1L, "EMPLOYEE", 1));
+
+        assertThatThrownBy(() -> categoryService.deleteCategory(1L, 3L))
+                .isInstanceOfSatisfying(BusinessException.class, exception ->
+                        assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.FORBIDDEN));
+
+        verify(categoryMapper, never()).update(any(KnowledgeCategory.class), any(LambdaUpdateWrapper.class));
+    }
+
+    @Test
+    void shouldReturnNotFoundWhenDeletingMissingCategory() {
+        when(sysUserMapper.selectById(2L)).thenReturn(user(2L, "ADMIN", 1));
+        when(categoryMapper.selectById(999L)).thenReturn(null);
+
+        assertThatThrownBy(() -> categoryService.deleteCategory(2L, 999L))
+                .isInstanceOfSatisfying(BusinessException.class, exception ->
+                        assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.DATA_NOT_FOUND));
+
+        verify(categoryMapper, never()).update(any(KnowledgeCategory.class), any(LambdaUpdateWrapper.class));
+    }
+
     private SysUser user(Long id, String role, Integer status) {
         SysUser user = new SysUser();
         user.setId(id);

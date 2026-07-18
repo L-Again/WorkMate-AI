@@ -16,6 +16,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import com.workmate.ai.dto.CategoryStatusDTO;
 import org.springframework.web.bind.annotation.PatchMapping;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import java.util.List;
 
 @RestController
@@ -62,6 +63,13 @@ public class CategoryController {
             @PathVariable("id") Long categoryId,
             @Valid @RequestBody CategoryStatusDTO request) {
         return CommonResult.success(categoryService.updateCategoryStatus(userId, categoryId, request));
+    }
+
+    @DeleteMapping("/api/knowledge/categories/{id}")
+    public CommonResult<Boolean> deleteCategory(
+            @RequestHeader("X-User-Id") Long userId,
+            @PathVariable("id") Long categoryId) {
+        return CommonResult.success(categoryService.deleteCategory(userId, categoryId));
     }
 
 }

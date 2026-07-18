@@ -186,4 +186,32 @@ public class CategoryServiceImpl implements CategoryService {
         existingCategory.setStatus(request.getStatus());
         return toVO(existingCategory);
     }
+
+    @Override
+    public Boolean deleteCategory(Long userId, Long categoryId) {
+        SysUser user = sysUserMapper.selectById(userId);
+        if (user == null || !Integer.valueOf(ENABLED_STATUS).equals(user.getStatus())) {
+            throw new BusinessException(ErrorCode.USER_NOT_FOUND_OR_DISABLED);
+        }
+
+        if (!ADMIN_ROLE.equals(user.getRole())) {
+            throw new BusinessException(ErrorCode.FORBIDDEN);
+        }
+
+        KnowledgeCategory existingCategory = categoryMapper.selectById(categoryId);
+        if (existingCategory == null || !Integer.valueOf(NOT_DELETED).equals(existingCategory.getIsDeleted())) {
+            throw new BusinessException(ErrorCode.DATA_NOT_FOUND);
+        }
+
+        KnowledgeCategory deletedCategory = new KnowledgeCategory();
+        deletedCategory.setIsDeleted(1);
+
+        LambdaUpdateWrapper<KnowledgeCategory> updateWrapper = new LambdaUpdateWrapper<>();
+        updateWrapper.eq(KnowledgeCategory::getId, categoryId);
+        updateWrapper.eq(KnowledgeCategory::getIsDeleted, NOT_DELETED);
+
+        categoryMapper.update(deletedCategory, updateWrapper);
+
+        return true;
+    }
 }

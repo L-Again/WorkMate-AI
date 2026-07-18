@@ -18,4 +18,5 @@ public interface CategoryService {
 
     CategoryVO updateCategoryStatus(Long userId, Long categoryId, CategoryStatusDTO request);
 
+    Boolean deleteCategory(Long userId, Long categoryId);
 }

@@ -15,7 +15,8 @@ import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.annotation.Import;
 import org.springframework.test.web.servlet.MockMvc;
-
+import com.workmate.ai.dto.KnowledgeStatusDTO;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -179,5 +180,33 @@ class KnowledgeControllerTest {
                 .andExpect(jsonPath("$.data.categoryId", is(3)))
                 .andExpect(jsonPath("$.data.title", is("Git 分支命名规范更新")))
                 .andExpect(jsonPath("$.data.status", is(1)));
+    }
+
+    @Test
+    void shouldUpdateKnowledgeStatus() throws Exception {
+        when(knowledgeService.updateKnowledgeStatus(eq(2L), eq(1L), any(KnowledgeStatusDTO.class)))
+                .thenReturn(new KnowledgeDetailVO(
+                        1L,
+                        3L,
+                        "研发规范",
+                        "Git 分支命名规范",
+                        "Git,分支,branch,feature,bugfix",
+                        "功能分支统一使用 feature/功能名称，缺陷修复分支使用 bugfix/缺陷名称。",
+                        0,
+                        LocalDateTime.of(2026, 7, 18, 18, 20)
+                ));
+
+        mockMvc.perform(patch("/api/knowledge/{id}/status", 1L)
+                        .header("X-User-Id", "2")
+                        .contentType("application/json")
+                        .content("""
+                    {
+                      "status": 0
+                    }
+                    """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code", is(200)))
+                .andExpect(jsonPath("$.data.id", is(1)))
+                .andExpect(jsonPath("$.data.status", is(0)));
     }
 }

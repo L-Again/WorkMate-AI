@@ -17,7 +17,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import com.workmate.ai.dto.KnowledgeUpdateDTO;
 import java.time.LocalDateTime;
 import java.util.List;
-
+import com.workmate.ai.dto.KnowledgeStatusDTO;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.when;
@@ -91,6 +91,12 @@ class KnowledgeServiceTest {
         user.setRole(role);
         user.setStatus(status);
         return user;
+    }
+
+    private KnowledgeStatusDTO knowledgeStatusRequest(Integer status) {
+        KnowledgeStatusDTO request = new KnowledgeStatusDTO();
+        request.setStatus(status);
+        return request;
     }
 
     @Test
@@ -384,4 +390,68 @@ class KnowledgeServiceTest {
 
         verify(knowledgeMapper, never()).updateById(any(Knowledge.class));
     }
+
+    @Test
+    void shouldUpdateKnowledgeStatusWhenAdmin() {
+        KnowledgeStatusDTO request = knowledgeStatusRequest(0);
+
+        Knowledge existing = new Knowledge();
+        existing.setId(1L);
+        existing.setIsDeleted(0);
+
+        when(sysUserMapper.selectById(2L)).thenReturn(user(2L, "ADMIN", 1));
+        when(knowledgeMapper.selectById(1L)).thenReturn(existing);
+        when(knowledgeMapper.updateById(any(Knowledge.class))).thenReturn(1);
+        when(knowledgeMapper.selectKnowledgeDetail(1L))
+                .thenReturn(new KnowledgeDetailVO(
+                        1L,
+                        3L,
+                        "研发规范",
+                        "Git 分支命名规范",
+                        "Git,分支,branch,feature,bugfix",
+                        "功能分支统一使用 feature/功能名称，缺陷修复分支使用 bugfix/缺陷名称。",
+                        0,
+                        LocalDateTime.of(2026, 7, 18, 18, 20)
+                ));
+
+        KnowledgeDetailVO result = knowledgeService.updateKnowledgeStatus(2L, 1L, request);
+
+        assertThat(result.getStatus()).isEqualTo(0);
+
+        ArgumentCaptor<Knowledge> captor = ArgumentCaptor.forClass(Knowledge.class);
+        verify(knowledgeMapper).updateById(captor.capture());
+
+        Knowledge updated = captor.getValue();
+        assertThat(updated.getId()).isEqualTo(1L);
+        assertThat(updated.getStatus()).isEqualTo(0);
+        assertThat(updated.getUpdatedBy()).isEqualTo(2L);
+    }
+
+    @Test
+    void shouldReturnForbiddenWhenEmployeeUpdatesKnowledgeStatus() {
+        KnowledgeStatusDTO request = knowledgeStatusRequest(0);
+
+        when(sysUserMapper.selectById(1L)).thenReturn(user(1L, "EMPLOYEE", 1));
+
+        assertThatThrownBy(() -> knowledgeService.updateKnowledgeStatus(1L, 1L, request))
+                .isInstanceOfSatisfying(BusinessException.class, exception ->
+                        assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.FORBIDDEN));
+
+        verify(knowledgeMapper, never()).updateById(any(Knowledge.class));
+    }
+
+    @Test
+    void shouldReturnNotFoundWhenUpdatingMissingKnowledgeStatus() {
+        KnowledgeStatusDTO request = knowledgeStatusRequest(0);
+
+        when(sysUserMapper.selectById(2L)).thenReturn(user(2L, "ADMIN", 1));
+        when(knowledgeMapper.selectById(999L)).thenReturn(null);
+
+        assertThatThrownBy(() -> knowledgeService.updateKnowledgeStatus(2L, 999L, request))
+                .isInstanceOfSatisfying(BusinessException.class, exception ->
+                        assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.DATA_NOT_FOUND));
+
+        verify(knowledgeMapper, never()).updateById(any(Knowledge.class));
+    }
+
 }

@@ -5,6 +5,7 @@ import com.workmate.ai.vo.KnowledgeListItemVO;
 import com.workmate.ai.vo.KnowledgeDetailVO;
 import com.workmate.ai.dto.KnowledgeCreateDTO;
 import com.workmate.ai.dto.KnowledgeUpdateDTO;
+import com.workmate.ai.dto.KnowledgeStatusDTO;
 
 public interface KnowledgeService {
 
@@ -18,5 +19,5 @@ public interface KnowledgeService {
 
     KnowledgeDetailVO updateKnowledge(Long userId, Long knowledgeId, KnowledgeUpdateDTO request);
 
-
+    KnowledgeDetailVO updateKnowledgeStatus(Long userId, Long knowledgeId, KnowledgeStatusDTO request);
 }

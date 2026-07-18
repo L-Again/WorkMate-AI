@@ -16,6 +16,8 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import com.workmate.ai.dto.KnowledgeUpdateDTO;
 import org.springframework.web.bind.annotation.PutMapping;
+import com.workmate.ai.dto.KnowledgeStatusDTO;
+import org.springframework.web.bind.annotation.PatchMapping;
 
 @RestController
 public class KnowledgeController {
@@ -57,5 +59,13 @@ public class KnowledgeController {
             @PathVariable("id") Long knowledgeId,
             @Valid @RequestBody KnowledgeUpdateDTO request) {
         return CommonResult.success(knowledgeService.updateKnowledge(userId, knowledgeId, request));
+    }
+
+    @PatchMapping("/api/knowledge/{id}/status")
+    public CommonResult<KnowledgeDetailVO> updateKnowledgeStatus(
+            @RequestHeader("X-User-Id") Long userId,
+            @PathVariable("id") Long knowledgeId,
+            @Valid @RequestBody KnowledgeStatusDTO request) {
+        return CommonResult.success(knowledgeService.updateKnowledgeStatus(userId, knowledgeId, request));
     }
 }

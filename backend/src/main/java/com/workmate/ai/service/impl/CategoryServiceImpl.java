@@ -11,7 +11,8 @@ import com.workmate.ai.service.CategoryService;
 import com.workmate.ai.vo.CategoryVO;
 import com.workmate.ai.dto.CategoryCreateDTO;
 import org.springframework.stereotype.Service;
-
+import com.workmate.ai.dto.CategoryUpdateDTO;
+import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import java.util.List;
 
 @Service
@@ -112,6 +113,48 @@ public class CategoryServiceImpl implements CategoryService {
         categoryMapper.insert(category);
 
         return toVO(category);
+    }
+
+    @Override
+    public CategoryVO updateCategory(Long userId, Long categoryId, CategoryUpdateDTO request) {
+        SysUser user = sysUserMapper.selectById(userId);
+        if (user == null || !Integer.valueOf(ENABLED_STATUS).equals(user.getStatus())) {
+            throw new BusinessException(ErrorCode.USER_NOT_FOUND_OR_DISABLED);
+        }
+
+        if (!ADMIN_ROLE.equals(user.getRole())) {
+            throw new BusinessException(ErrorCode.FORBIDDEN);
+        }
+
+        KnowledgeCategory existingCategory = categoryMapper.selectById(categoryId);
+        if (existingCategory == null || !Integer.valueOf(NOT_DELETED).equals(existingCategory.getIsDeleted())) {
+            throw new BusinessException(ErrorCode.DATA_NOT_FOUND);
+        }
+
+        LambdaQueryWrapper<KnowledgeCategory> duplicateQuery = new LambdaQueryWrapper<>();
+        duplicateQuery.eq(KnowledgeCategory::getName, request.getName());
+        duplicateQuery.eq(KnowledgeCategory::getIsDeleted, NOT_DELETED);
+        duplicateQuery.ne(KnowledgeCategory::getId, categoryId);
+        if (categoryMapper.selectCount(duplicateQuery) > 0) {
+            throw new BusinessException(ErrorCode.STATE_CONFLICT);
+        }
+
+        KnowledgeCategory updatedCategory = new KnowledgeCategory();
+        updatedCategory.setName(request.getName());
+        updatedCategory.setDescription(request.getDescription());
+        updatedCategory.setSortOrder(request.getSortOrder());
+
+        LambdaUpdateWrapper<KnowledgeCategory> updateWrapper = new LambdaUpdateWrapper<>();
+        updateWrapper.eq(KnowledgeCategory::getId, categoryId);
+        updateWrapper.eq(KnowledgeCategory::getIsDeleted, NOT_DELETED);
+
+        categoryMapper.update(updatedCategory, updateWrapper);
+
+        existingCategory.setName(request.getName());
+        existingCategory.setDescription(request.getDescription());
+        existingCategory.setSortOrder(request.getSortOrder());
+
+        return toVO(existingCategory);
     }
 
 }

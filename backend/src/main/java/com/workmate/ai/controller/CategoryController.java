@@ -4,9 +4,9 @@ import com.workmate.ai.common.CommonResult;
 import com.workmate.ai.service.CategoryService;
 import com.workmate.ai.vo.CategoryVO;
 import com.workmate.ai.dto.CategoryCreateDTO;
-
+import com.workmate.ai.dto.CategoryUpdateDTO;
 import jakarta.validation.Valid;
-
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -47,5 +47,12 @@ public class CategoryController {
         return CommonResult.success(categoryService.createCategory(userId, request));
     }
 
+    @PutMapping("/api/knowledge/categories/{id}")
+    public CommonResult<CategoryVO> updateCategory(
+            @RequestHeader("X-User-Id") Long userId,
+            @PathVariable("id") Long categoryId,
+            @Valid @RequestBody CategoryUpdateDTO request) {
+        return CommonResult.success(categoryService.updateCategory(userId, categoryId, request));
+    }
 
 }

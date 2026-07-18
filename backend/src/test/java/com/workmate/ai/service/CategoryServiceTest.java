@@ -9,6 +9,8 @@ import com.workmate.ai.mapper.SysUserMapper;
 import com.workmate.ai.service.impl.CategoryServiceImpl;
 import com.workmate.ai.vo.CategoryVO;
 import com.workmate.ai.dto.CategoryCreateDTO;
+import com.workmate.ai.dto.CategoryUpdateDTO;
+import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -167,6 +169,62 @@ class CategoryServiceTest {
         verify(categoryMapper, never()).insert(any(KnowledgeCategory.class));
     }
 
+    @Test
+    void shouldUpdateCategoryWhenUserIsAdmin() {
+        CategoryUpdateDTO request = updateRequest("研发规范", "研发团队内部规范", 3);
+        when(sysUserMapper.selectById(2L)).thenReturn(user(2L, "ADMIN", 1));
+        when(categoryMapper.selectById(3L)).thenReturn(category(3L, "研发规范", 3, 1));
+        when(categoryMapper.selectCount(any())).thenReturn(0L);
+
+        CategoryVO result = categoryService.updateCategory(2L, 3L, request);
+
+        assertThat(result.getId()).isEqualTo(3L);
+        assertThat(result.getName()).isEqualTo("研发规范");
+        assertThat(result.getDescription()).isEqualTo("研发团队内部规范");
+        assertThat(result.getSortOrder()).isEqualTo(3);
+
+        verify(categoryMapper).update(any(KnowledgeCategory.class), any(LambdaUpdateWrapper.class));
+    }
+
+    @Test
+    void shouldForbidEmployeeToUpdateCategory() {
+        CategoryUpdateDTO request = updateRequest("研发规范", "研发团队内部规范", 3);
+        when(sysUserMapper.selectById(1L)).thenReturn(user(1L, "EMPLOYEE", 1));
+
+        assertThatThrownBy(() -> categoryService.updateCategory(1L, 3L, request))
+                .isInstanceOfSatisfying(BusinessException.class, exception ->
+                        assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.FORBIDDEN));
+
+        verify(categoryMapper, never()).update(any(KnowledgeCategory.class), any(LambdaUpdateWrapper.class));
+    }
+
+    @Test
+    void shouldReturnNotFoundWhenUpdatingMissingCategory() {
+        CategoryUpdateDTO request = updateRequest("研发规范", "研发团队内部规范", 3);
+        when(sysUserMapper.selectById(2L)).thenReturn(user(2L, "ADMIN", 1));
+        when(categoryMapper.selectById(999L)).thenReturn(null);
+
+        assertThatThrownBy(() -> categoryService.updateCategory(2L, 999L, request))
+                .isInstanceOfSatisfying(BusinessException.class, exception ->
+                        assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.DATA_NOT_FOUND));
+
+        verify(categoryMapper, never()).update(any(KnowledgeCategory.class), any(LambdaUpdateWrapper.class));
+    }
+
+    @Test
+    void shouldRejectDuplicateCategoryNameWhenUpdatingCategory() {
+        CategoryUpdateDTO request = updateRequest("IT支持", "重复名称", 3);
+        when(sysUserMapper.selectById(2L)).thenReturn(user(2L, "ADMIN", 1));
+        when(categoryMapper.selectById(3L)).thenReturn(category(3L, "研发规范", 3, 1));
+        when(categoryMapper.selectCount(any())).thenReturn(1L);
+
+        assertThatThrownBy(() -> categoryService.updateCategory(2L, 3L, request))
+                .isInstanceOfSatisfying(BusinessException.class, exception ->
+                        assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.STATE_CONFLICT));
+
+        verify(categoryMapper, never()).update(any(KnowledgeCategory.class), any(LambdaUpdateWrapper.class));
+    }
+
     private SysUser user(Long id, String role, Integer status) {
         SysUser user = new SysUser();
         user.setId(id);
@@ -188,6 +246,14 @@ class CategoryServiceTest {
 
     private CategoryCreateDTO createRequest(String name, String description, Integer sortOrder) {
         CategoryCreateDTO request = new CategoryCreateDTO();
+        request.setName(name);
+        request.setDescription(description);
+        request.setSortOrder(sortOrder);
+        return request;
+    }
+
+    private CategoryUpdateDTO updateRequest(String name, String description, Integer sortOrder) {
+        CategoryUpdateDTO request = new CategoryUpdateDTO();
         request.setName(name);
         request.setDescription(description);
         request.setSortOrder(sortOrder);

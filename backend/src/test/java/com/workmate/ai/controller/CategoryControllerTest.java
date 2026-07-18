@@ -13,9 +13,10 @@ import org.springframework.context.annotation.Import;
 import org.springframework.test.web.servlet.MockMvc;
 import com.workmate.ai.dto.CategoryCreateDTO;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.workmate.ai.dto.CategoryUpdateDTO;
 
 import java.util.List;
-
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.is;
 import static org.mockito.Mockito.when;
@@ -119,6 +120,27 @@ class CategoryControllerTest {
                 .andExpect(jsonPath("$.data.id", is(5)))
                 .andExpect(jsonPath("$.data.name", is("财务制度")))
                 .andExpect(jsonPath("$.data.status", is(1)));
+    }
+
+    @Test
+    void shouldUpdateCategoryWhenUserIsAdmin() throws Exception {
+        CategoryUpdateDTO request = new CategoryUpdateDTO();
+        request.setName("研发规范");
+        request.setDescription("研发团队内部规范");
+        request.setSortOrder(3);
+
+        when(categoryService.updateCategory(eq(2L), eq(3L), any(CategoryUpdateDTO.class)))
+                .thenReturn(new CategoryVO(3L, "研发规范", "研发团队内部规范", 3, 1));
+
+        mockMvc.perform(put("/api/knowledge/categories/{id}", 3L)
+                        .header("X-User-Id", "2")
+                        .contentType(APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code", is(200)))
+                .andExpect(jsonPath("$.data.id", is(3)))
+                .andExpect(jsonPath("$.data.name", is("研发规范")))
+                .andExpect(jsonPath("$.data.description", is("研发团队内部规范")));
     }
 
 }

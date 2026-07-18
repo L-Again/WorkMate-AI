@@ -8,6 +8,7 @@ import com.workmate.ai.mapper.KnowledgeMapper;
 import com.workmate.ai.mapper.SysUserMapper;
 import com.workmate.ai.service.impl.KnowledgeServiceImpl;
 import com.workmate.ai.vo.KnowledgeListItemVO;
+import com.workmate.ai.vo.KnowledgeDetailVO;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -77,5 +78,37 @@ class KnowledgeServiceTest {
         user.setRole(role);
         user.setStatus(status);
         return user;
+    }
+
+    @Test
+    void shouldGetKnowledgeDetail() {
+        KnowledgeDetailVO detail = new KnowledgeDetailVO(
+                1L,
+                3L,
+                "研发规范",
+                "Git 分支命名规范",
+                "Git,分支,branch",
+                "功能分支统一使用 feature/功能名称。",
+                1,
+                LocalDateTime.of(2026, 7, 16, 19, 0)
+        );
+        when(sysUserMapper.selectById(1L)).thenReturn(user(1L, "EMPLOYEE", 1));
+        when(knowledgeMapper.selectKnowledgeDetail(1L)).thenReturn(detail);
+
+        KnowledgeDetailVO result = knowledgeService.getKnowledgeDetail(1L, 1L);
+
+        assertThat(result.getId()).isEqualTo(1L);
+        assertThat(result.getTitle()).isEqualTo("Git 分支命名规范");
+        assertThat(result.getContent()).isEqualTo("功能分支统一使用 feature/功能名称。");
+    }
+
+    @Test
+    void shouldReturnNotFoundWhenKnowledgeDetailDoesNotExist() {
+        when(sysUserMapper.selectById(1L)).thenReturn(user(1L, "EMPLOYEE", 1));
+        when(knowledgeMapper.selectKnowledgeDetail(999L)).thenReturn(null);
+
+        assertThatThrownBy(() -> knowledgeService.getKnowledgeDetail(1L, 999L))
+                .isInstanceOfSatisfying(BusinessException.class, exception ->
+                        assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.DATA_NOT_FOUND));
     }
 }

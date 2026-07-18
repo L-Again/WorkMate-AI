@@ -4,6 +4,8 @@ import com.workmate.ai.common.CommonResult;
 import com.workmate.ai.common.PageResult;
 import com.workmate.ai.service.KnowledgeService;
 import com.workmate.ai.vo.KnowledgeListItemVO;
+import com.workmate.ai.vo.KnowledgeDetailVO;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -27,5 +29,12 @@ public class KnowledgeController {
             @RequestParam(required = false) Long categoryId,
             @RequestParam(required = false) Integer status) {
         return CommonResult.success(knowledgeService.pageKnowledge(userId, pageNum, pageSize, keyword, categoryId, status));
+    }
+
+    @GetMapping("/api/knowledge/{id}")
+    public CommonResult<KnowledgeDetailVO> getKnowledgeDetail(
+            @RequestHeader("X-User-Id") Long userId,
+            @PathVariable("id") Long knowledgeId) {
+        return CommonResult.success(knowledgeService.getKnowledgeDetail(userId, knowledgeId));
     }
 }

@@ -53,4 +53,22 @@
         </if>
     </select>
 
+    <select id="selectKnowledgeDetail" resultType="com.workmate.ai.vo.KnowledgeDetailVO">
+        SELECT
+        k.id,
+        k.category_id AS categoryId,
+        c.name AS categoryName,
+        k.title,
+        k.keywords,
+        k.content,
+        k.status,
+        k.updated_at AS updatedAt
+        FROM knowledge k
+        INNER JOIN knowledge_category c ON k.category_id = c.id
+        WHERE k.id = #{id}
+        AND k.is_deleted = 0
+        AND c.is_deleted = 0
+        LIMIT 1
+    </select>
+
 </mapper>

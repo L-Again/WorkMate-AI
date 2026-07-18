@@ -8,6 +8,7 @@ import com.workmate.ai.mapper.KnowledgeMapper;
 import com.workmate.ai.mapper.SysUserMapper;
 import com.workmate.ai.service.KnowledgeService;
 import com.workmate.ai.vo.KnowledgeListItemVO;
+import com.workmate.ai.vo.KnowledgeDetailVO;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -42,5 +43,20 @@ public class KnowledgeServiceImpl implements KnowledgeService {
         long pages = total == 0 ? 0 : (total + safePageSize - 1) / safePageSize;
 
         return new PageResult<>(records, safePageNum, safePageSize, total, pages);
+    }
+
+    @Override
+    public KnowledgeDetailVO getKnowledgeDetail(Long userId, Long knowledgeId) {
+        SysUser user = sysUserMapper.selectById(userId);
+        if (user == null || !Integer.valueOf(ENABLED_STATUS).equals(user.getStatus())) {
+            throw new BusinessException(ErrorCode.USER_NOT_FOUND_OR_DISABLED);
+        }
+
+        KnowledgeDetailVO detail = knowledgeMapper.selectKnowledgeDetail(knowledgeId);
+        if (detail == null) {
+            throw new BusinessException(ErrorCode.DATA_NOT_FOUND);
+        }
+
+        return detail;
     }
 }

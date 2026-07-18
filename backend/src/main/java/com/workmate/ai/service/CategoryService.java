@@ -12,5 +12,6 @@ public interface CategoryService {
     CategoryVO getCategoryDetail(Long userId, Long categoryId);
 
     CategoryVO createCategory(Long userId, CategoryCreateDTO request);
-    
+
+
 }

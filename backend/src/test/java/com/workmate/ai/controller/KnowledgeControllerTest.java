@@ -8,6 +8,7 @@ import com.workmate.ai.exception.BusinessException;
 import com.workmate.ai.common.ErrorCode;
 import com.workmate.ai.vo.KnowledgeDetailVO;
 import com.workmate.ai.dto.KnowledgeCreateDTO;
+import com.workmate.ai.dto.KnowledgeUpdateDTO;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
@@ -27,6 +28,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 
 @WebMvcTest(KnowledgeController.class)
 @Import(GlobalExceptionHandler.class)
@@ -142,6 +144,40 @@ class KnowledgeControllerTest {
                 .andExpect(jsonPath("$.data.id", is(10)))
                 .andExpect(jsonPath("$.data.categoryId", is(3)))
                 .andExpect(jsonPath("$.data.title", is("Java 接口返回规范")))
+                .andExpect(jsonPath("$.data.status", is(1)));
+    }
+
+    @Test
+    void shouldUpdateKnowledge() throws Exception {
+        when(knowledgeService.updateKnowledge(eq(2L), eq(1L), any(KnowledgeUpdateDTO.class)))
+                .thenReturn(new KnowledgeDetailVO(
+                        1L,
+                        3L,
+                        "研发规范",
+                        "Git 分支命名规范更新",
+                        "Git,分支,branch,规范",
+                        "功能分支统一使用 feature/功能名称，修复分支统一使用 bugfix/问题名称。",
+                        1,
+                        LocalDateTime.of(2026, 7, 18, 17, 30)
+                ));
+
+        mockMvc.perform(put("/api/knowledge/{id}", 1L)
+                        .header("X-User-Id", "2")
+                        .contentType("application/json")
+                        .content("""
+                        {
+                          "categoryId": 3,
+                          "title": "Git 分支命名规范更新",
+                          "keywords": "Git,分支,branch,规范",
+                          "content": "功能分支统一使用 feature/功能名称，修复分支统一使用 bugfix/问题名称。",
+                          "status": 1
+                        }
+                        """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code", is(200)))
+                .andExpect(jsonPath("$.data.id", is(1)))
+                .andExpect(jsonPath("$.data.categoryId", is(3)))
+                .andExpect(jsonPath("$.data.title", is("Git 分支命名规范更新")))
                 .andExpect(jsonPath("$.data.status", is(1)));
     }
 }

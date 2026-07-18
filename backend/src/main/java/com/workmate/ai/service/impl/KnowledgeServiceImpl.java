@@ -14,6 +14,7 @@ import org.springframework.stereotype.Service;
 import com.workmate.ai.entity.Knowledge;
 import com.workmate.ai.entity.KnowledgeCategory;
 import com.workmate.ai.mapper.KnowledgeCategoryMapper;
+import com.workmate.ai.dto.KnowledgeUpdateDTO;
 
 
 import java.util.List;
@@ -100,5 +101,40 @@ public class KnowledgeServiceImpl implements KnowledgeService {
         knowledgeMapper.insert(knowledge);
 
         return knowledgeMapper.selectKnowledgeDetail(knowledge.getId());
+    }
+
+    @Override
+    public KnowledgeDetailVO updateKnowledge(Long userId, Long knowledgeId, KnowledgeUpdateDTO request) {
+        SysUser user = sysUserMapper.selectById(userId);
+        if (user == null || !Integer.valueOf(ENABLED_STATUS).equals(user.getStatus())) {
+            throw new BusinessException(ErrorCode.USER_NOT_FOUND_OR_DISABLED);
+        }
+
+        if (!ADMIN_ROLE.equals(user.getRole())) {
+            throw new BusinessException(ErrorCode.FORBIDDEN);
+        }
+
+        Knowledge existing = knowledgeMapper.selectById(knowledgeId);
+        if (existing == null || !Integer.valueOf(NOT_DELETED).equals(existing.getIsDeleted())) {
+            throw new BusinessException(ErrorCode.DATA_NOT_FOUND);
+        }
+
+        KnowledgeCategory category = categoryMapper.selectById(request.getCategoryId());
+        if (category == null || !Integer.valueOf(NOT_DELETED).equals(category.getIsDeleted())) {
+            throw new BusinessException(ErrorCode.DATA_NOT_FOUND);
+        }
+
+        Knowledge knowledge = new Knowledge();
+        knowledge.setId(knowledgeId);
+        knowledge.setCategoryId(request.getCategoryId());
+        knowledge.setTitle(request.getTitle());
+        knowledge.setKeywords(request.getKeywords());
+        knowledge.setContent(request.getContent());
+        knowledge.setStatus(request.getStatus());
+        knowledge.setUpdatedBy(userId);
+
+        knowledgeMapper.updateById(knowledge);
+
+        return knowledgeMapper.selectKnowledgeDetail(knowledgeId);
     }
 }

@@ -14,6 +14,8 @@ import com.workmate.ai.dto.KnowledgeCreateDTO;
 import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import com.workmate.ai.dto.KnowledgeUpdateDTO;
+import org.springframework.web.bind.annotation.PutMapping;
 
 @RestController
 public class KnowledgeController {
@@ -47,5 +49,13 @@ public class KnowledgeController {
             @RequestHeader("X-User-Id") Long userId,
             @Valid @RequestBody KnowledgeCreateDTO request) {
         return CommonResult.success(knowledgeService.createKnowledge(userId, request));
+    }
+
+    @PutMapping("/api/knowledge/{id}")
+    public CommonResult<KnowledgeDetailVO> updateKnowledge(
+            @RequestHeader("X-User-Id") Long userId,
+            @PathVariable("id") Long knowledgeId,
+            @Valid @RequestBody KnowledgeUpdateDTO request) {
+        return CommonResult.success(knowledgeService.updateKnowledge(userId, knowledgeId, request));
     }
 }

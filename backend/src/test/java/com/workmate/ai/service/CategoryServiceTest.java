@@ -75,7 +75,50 @@ class CategoryServiceTest {
 
         verify(categoryMapper, never()).selectList(any());
     }
-    
+
+    @Test
+    void shouldGetEnabledCategoryDetailForEmployee() {
+        when(sysUserMapper.selectById(1L)).thenReturn(user(1L, "EMPLOYEE", 1));
+        when(categoryMapper.selectById(1L)).thenReturn(category(1L, "人事制度", 1, 1));
+
+        CategoryVO result = categoryService.getCategoryDetail(1L, 1L);
+
+        assertThat(result.getId()).isEqualTo(1L);
+        assertThat(result.getName()).isEqualTo("人事制度");
+        assertThat(result.getStatus()).isEqualTo(1);
+    }
+
+    @Test
+    void shouldGetDisabledCategoryDetailForAdmin() {
+        when(sysUserMapper.selectById(2L)).thenReturn(user(2L, "ADMIN", 1));
+        when(categoryMapper.selectById(4L)).thenReturn(category(4L, "项目流程", 4, 0));
+
+        CategoryVO result = categoryService.getCategoryDetail(2L, 4L);
+
+        assertThat(result.getId()).isEqualTo(4L);
+        assertThat(result.getName()).isEqualTo("项目流程");
+        assertThat(result.getStatus()).isEqualTo(0);
+    }
+
+    @Test
+    void shouldReturnNotFoundWhenEmployeeGetsDisabledCategoryDetail() {
+        when(sysUserMapper.selectById(1L)).thenReturn(user(1L, "EMPLOYEE", 1));
+        when(categoryMapper.selectById(4L)).thenReturn(category(4L, "项目流程", 4, 0));
+
+        assertThatThrownBy(() -> categoryService.getCategoryDetail(1L, 4L))
+                .isInstanceOfSatisfying(BusinessException.class, exception ->
+                        assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.DATA_NOT_FOUND));
+    }
+
+    @Test
+    void shouldReturnNotFoundWhenCategoryDetailDoesNotExist() {
+        when(sysUserMapper.selectById(1L)).thenReturn(user(1L, "EMPLOYEE", 1));
+        when(categoryMapper.selectById(999L)).thenReturn(null);
+
+        assertThatThrownBy(() -> categoryService.getCategoryDetail(1L, 999L))
+                .isInstanceOfSatisfying(BusinessException.class, exception ->
+                        assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.DATA_NOT_FOUND));
+    }
 
     private SysUser user(Long id, String role, Integer status) {
         SysUser user = new SysUser();
@@ -95,4 +138,5 @@ class CategoryServiceTest {
         category.setIsDeleted(0);
         return category;
     }
+
 }

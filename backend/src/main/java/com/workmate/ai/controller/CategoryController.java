@@ -7,6 +7,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.PathVariable;
 
 import java.util.List;
 
@@ -25,4 +26,12 @@ public class CategoryController {
             @RequestParam(defaultValue = "false") Boolean includeDisabled) {
         return CommonResult.success(categoryService.listCategories(userId, includeDisabled));
     }
+
+    @GetMapping("/api/knowledge/categories/{id}")
+    public CommonResult<CategoryVO> getCategoryDetail(
+            @RequestHeader("X-User-Id") Long userId,
+            @PathVariable("id") Long categoryId) {
+        return CommonResult.success(categoryService.getCategoryDetail(userId, categoryId));
+    }
+
 }

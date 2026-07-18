@@ -20,6 +20,8 @@ import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.never;
 
 @WebMvcTest(CategoryController.class)
 @Import(GlobalExceptionHandler.class)
@@ -60,4 +62,33 @@ class CategoryControllerTest {
                 .andExpect(jsonPath("$.code", is(40301)))
                 .andExpect(jsonPath("$.message", is("无权限")));
     }
+
+    @Test
+    void shouldGetCategoryDetail() throws Exception {
+        when(categoryService.getCategoryDetail(1L, 1L))
+                .thenReturn(new CategoryVO(1L, "人事制度", "请假、报销、考勤和转正等制度", 1, 1));
+
+        mockMvc.perform(get("/api/knowledge/categories/{id}", 1L)
+                        .header("X-User-Id", "1"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code", is(200)))
+                .andExpect(jsonPath("$.data.id", is(1)))
+                .andExpect(jsonPath("$.data.name", is("人事制度")))
+                .andExpect(jsonPath("$.data.status", is(1)));
+
+        verify(categoryService).getCategoryDetail(1L, 1L);
+    }
+
+    @Test
+    void shouldReturnNotFoundWhenCategoryDoesNotExist() throws Exception {
+        when(categoryService.getCategoryDetail(1L, 999L))
+                .thenThrow(new BusinessException(ErrorCode.DATA_NOT_FOUND));
+
+        mockMvc.perform(get("/api/knowledge/categories/{id}", 999L)
+                        .header("X-User-Id", "1"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code", is(40401)))
+                .andExpect(jsonPath("$.message", is("数据不存在")));
+    }
+
 }

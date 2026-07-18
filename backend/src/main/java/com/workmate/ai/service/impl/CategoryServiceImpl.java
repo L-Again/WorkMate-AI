@@ -62,4 +62,25 @@ public class CategoryServiceImpl implements CategoryService {
                 category.getStatus()
         );
     }
+
+    @Override
+    public CategoryVO getCategoryDetail(Long userId, Long categoryId) {
+        SysUser user = sysUserMapper.selectById(userId);
+        if (user == null || !Integer.valueOf(ENABLED_STATUS).equals(user.getStatus())) {
+            throw new BusinessException(ErrorCode.USER_NOT_FOUND_OR_DISABLED);
+        }
+
+        KnowledgeCategory category = categoryMapper.selectById(categoryId);
+        if (category == null || !Integer.valueOf(NOT_DELETED).equals(category.getIsDeleted())) {
+            throw new BusinessException(ErrorCode.DATA_NOT_FOUND);
+        }
+
+        boolean isAdmin = ADMIN_ROLE.equals(user.getRole());
+        if (!isAdmin && !Integer.valueOf(ENABLED_STATUS).equals(category.getStatus())) {
+            throw new BusinessException(ErrorCode.DATA_NOT_FOUND);
+        }
+
+        return toVO(category);
+    }
+
 }

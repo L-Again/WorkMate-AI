@@ -8,11 +8,13 @@ import com.workmate.ai.mapper.KnowledgeCategoryMapper;
 import com.workmate.ai.mapper.SysUserMapper;
 import com.workmate.ai.service.impl.CategoryServiceImpl;
 import com.workmate.ai.vo.CategoryVO;
+import com.workmate.ai.dto.CategoryCreateDTO;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.mockito.ArgumentCaptor;
 
 import java.util.List;
 
@@ -120,6 +122,51 @@ class CategoryServiceTest {
                         assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.DATA_NOT_FOUND));
     }
 
+    @Test
+    void shouldCreateCategoryWhenUserIsAdmin() {
+        CategoryCreateDTO request = createRequest("财务制度", "报销、预算和付款流程", 5);
+        when(sysUserMapper.selectById(2L)).thenReturn(user(2L, "ADMIN", 1));
+        when(categoryMapper.selectCount(any())).thenReturn(0L);
+
+        CategoryVO result = categoryService.createCategory(2L, request);
+
+        assertThat(result.getName()).isEqualTo("财务制度");
+        assertThat(result.getDescription()).isEqualTo("报销、预算和付款流程");
+        assertThat(result.getSortOrder()).isEqualTo(5);
+        assertThat(result.getStatus()).isEqualTo(1);
+
+        ArgumentCaptor<KnowledgeCategory> captor = ArgumentCaptor.forClass(KnowledgeCategory.class);
+        verify(categoryMapper).insert(captor.capture());
+        assertThat(captor.getValue().getName()).isEqualTo("财务制度");
+        assertThat(captor.getValue().getStatus()).isEqualTo(1);
+        assertThat(captor.getValue().getIsDeleted()).isEqualTo(0);
+    }
+
+    @Test
+    void shouldForbidEmployeeToCreateCategory() {
+        CategoryCreateDTO request = createRequest("财务制度", "报销、预算和付款流程", 5);
+        when(sysUserMapper.selectById(1L)).thenReturn(user(1L, "EMPLOYEE", 1));
+
+        assertThatThrownBy(() -> categoryService.createCategory(1L, request))
+                .isInstanceOfSatisfying(BusinessException.class, exception ->
+                        assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.FORBIDDEN));
+
+        verify(categoryMapper, never()).insert(any(KnowledgeCategory.class));
+    }
+
+    @Test
+    void shouldRejectDuplicateCategoryNameWhenCreatingCategory() {
+        CategoryCreateDTO request = createRequest("财务制度", "报销、预算和付款流程", 5);
+        when(sysUserMapper.selectById(2L)).thenReturn(user(2L, "ADMIN", 1));
+        when(categoryMapper.selectCount(any())).thenReturn(1L);
+
+        assertThatThrownBy(() -> categoryService.createCategory(2L, request))
+                .isInstanceOfSatisfying(BusinessException.class, exception ->
+                        assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.STATE_CONFLICT));
+
+        verify(categoryMapper, never()).insert(any(KnowledgeCategory.class));
+    }
+
     private SysUser user(Long id, String role, Integer status) {
         SysUser user = new SysUser();
         user.setId(id);
@@ -137,6 +184,14 @@ class CategoryServiceTest {
         category.setStatus(status);
         category.setIsDeleted(0);
         return category;
+    }
+
+    private CategoryCreateDTO createRequest(String name, String description, Integer sortOrder) {
+        CategoryCreateDTO request = new CategoryCreateDTO();
+        request.setName(name);
+        request.setDescription(description);
+        request.setSortOrder(sortOrder);
+        return request;
     }
 
 }

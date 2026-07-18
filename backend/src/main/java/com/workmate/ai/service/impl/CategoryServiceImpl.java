@@ -9,6 +9,7 @@ import com.workmate.ai.mapper.KnowledgeCategoryMapper;
 import com.workmate.ai.mapper.SysUserMapper;
 import com.workmate.ai.service.CategoryService;
 import com.workmate.ai.vo.CategoryVO;
+import com.workmate.ai.dto.CategoryCreateDTO;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -79,6 +80,36 @@ public class CategoryServiceImpl implements CategoryService {
         if (!isAdmin && !Integer.valueOf(ENABLED_STATUS).equals(category.getStatus())) {
             throw new BusinessException(ErrorCode.DATA_NOT_FOUND);
         }
+
+        return toVO(category);
+    }
+
+    @Override
+    public CategoryVO createCategory(Long userId, CategoryCreateDTO request) {
+        SysUser user = sysUserMapper.selectById(userId);
+        if (user == null || !Integer.valueOf(ENABLED_STATUS).equals(user.getStatus())) {
+            throw new BusinessException(ErrorCode.USER_NOT_FOUND_OR_DISABLED);
+        }
+
+        if (!ADMIN_ROLE.equals(user.getRole())) {
+            throw new BusinessException(ErrorCode.FORBIDDEN);
+        }
+
+        LambdaQueryWrapper<KnowledgeCategory> duplicateQuery = new LambdaQueryWrapper<>();
+        duplicateQuery.eq(KnowledgeCategory::getName, request.getName());
+        duplicateQuery.eq(KnowledgeCategory::getIsDeleted, NOT_DELETED);
+        if (categoryMapper.selectCount(duplicateQuery) > 0) {
+            throw new BusinessException(ErrorCode.STATE_CONFLICT);
+        }
+
+        KnowledgeCategory category = new KnowledgeCategory();
+        category.setName(request.getName());
+        category.setDescription(request.getDescription());
+        category.setSortOrder(request.getSortOrder());
+        category.setStatus(ENABLED_STATUS);
+        category.setIsDeleted(NOT_DELETED);
+
+        categoryMapper.insert(category);
 
         return toVO(category);
     }

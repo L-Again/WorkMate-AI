@@ -11,6 +11,8 @@ import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.annotation.Import;
 import org.springframework.test.web.servlet.MockMvc;
+import com.workmate.ai.dto.CategoryCreateDTO;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 import java.util.List;
 
@@ -22,6 +24,10 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.never;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.http.MediaType.APPLICATION_JSON;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 
 @WebMvcTest(CategoryController.class)
 @Import(GlobalExceptionHandler.class)
@@ -29,6 +35,9 @@ class CategoryControllerTest {
 
     @Autowired
     private MockMvc mockMvc;
+
+    @Autowired
+    private ObjectMapper objectMapper;
 
     @MockBean
     private CategoryService categoryService;
@@ -89,6 +98,27 @@ class CategoryControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code", is(40401)))
                 .andExpect(jsonPath("$.message", is("数据不存在")));
+    }
+
+    @Test
+    void shouldCreateCategoryWhenUserIsAdmin() throws Exception {
+        CategoryCreateDTO request = new CategoryCreateDTO();
+        request.setName("财务制度");
+        request.setDescription("报销、预算和付款流程");
+        request.setSortOrder(5);
+
+        when(categoryService.createCategory(eq(2L), any(CategoryCreateDTO.class)))
+                .thenReturn(new CategoryVO(5L, "财务制度", "报销、预算和付款流程", 5, 1));
+
+        mockMvc.perform(post("/api/knowledge/categories")
+                        .header("X-User-Id", "2")
+                        .contentType(APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code", is(200)))
+                .andExpect(jsonPath("$.data.id", is(5)))
+                .andExpect(jsonPath("$.data.name", is("财务制度")))
+                .andExpect(jsonPath("$.data.status", is(1)));
     }
 
 }

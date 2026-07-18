@@ -21,6 +21,16 @@ import java.util.List;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.never;
+
+import com.workmate.ai.dto.KnowledgeCreateDTO;
+import com.workmate.ai.entity.Knowledge;
+import com.workmate.ai.entity.KnowledgeCategory;
+import com.workmate.ai.mapper.KnowledgeCategoryMapper;
+import org.mockito.ArgumentCaptor;
+
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.verify;
 
 @ExtendWith(MockitoExtension.class)
 class KnowledgeServiceTest {
@@ -33,9 +43,12 @@ class KnowledgeServiceTest {
 
     private KnowledgeService knowledgeService;
 
+    @Mock
+    private KnowledgeCategoryMapper categoryMapper;
+
     @BeforeEach
     void setUp() {
-        knowledgeService = new KnowledgeServiceImpl(sysUserMapper, knowledgeMapper);
+        knowledgeService = new KnowledgeServiceImpl(sysUserMapper, knowledgeMapper, categoryMapper);
     }
 
     @Test
@@ -110,5 +123,95 @@ class KnowledgeServiceTest {
         assertThatThrownBy(() -> knowledgeService.getKnowledgeDetail(1L, 999L))
                 .isInstanceOfSatisfying(BusinessException.class, exception ->
                         assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.DATA_NOT_FOUND));
+    }
+
+    @Test
+    void shouldCreateKnowledgeWhenAdminAndCategoryExists() {
+        KnowledgeCreateDTO request = new KnowledgeCreateDTO();
+        request.setCategoryId(3L);
+        request.setTitle("Java 接口返回规范");
+        request.setKeywords("Java,接口,返回");
+        request.setContent("后端接口统一使用 CommonResult 返回。");
+        request.setStatus(1);
+
+        KnowledgeCategory category = new KnowledgeCategory();
+        category.setId(3L);
+        category.setName("研发规范");
+        category.setStatus(1);
+        category.setIsDeleted(0);
+
+        when(sysUserMapper.selectById(2L)).thenReturn(user(2L, "ADMIN", 1));
+        when(categoryMapper.selectById(3L)).thenReturn(category);
+        when(knowledgeMapper.insert(any(Knowledge.class))).thenAnswer(invocation -> {
+            Knowledge inserted = invocation.getArgument(0);
+            inserted.setId(10L);
+            return 1;
+        });
+        when(knowledgeMapper.selectKnowledgeDetail(10L))
+                .thenReturn(new KnowledgeDetailVO(
+                        10L,
+                        3L,
+                        "研发规范",
+                        "Java 接口返回规范",
+                        "Java,接口,返回",
+                        "后端接口统一使用 CommonResult 返回。",
+                        1,
+                        LocalDateTime.of(2026, 7, 18, 17, 0)
+                ));
+
+        KnowledgeDetailVO result = knowledgeService.createKnowledge(2L, request);
+
+        assertThat(result.getId()).isEqualTo(10L);
+        assertThat(result.getTitle()).isEqualTo("Java 接口返回规范");
+
+        ArgumentCaptor<Knowledge> captor = ArgumentCaptor.forClass(Knowledge.class);
+        verify(knowledgeMapper).insert(captor.capture());
+
+        Knowledge inserted = captor.getValue();
+        assertThat(inserted.getCategoryId()).isEqualTo(3L);
+        assertThat(inserted.getTitle()).isEqualTo("Java 接口返回规范");
+        assertThat(inserted.getKeywords()).isEqualTo("Java,接口,返回");
+        assertThat(inserted.getContent()).isEqualTo("后端接口统一使用 CommonResult 返回。");
+        assertThat(inserted.getStatus()).isEqualTo(1);
+        assertThat(inserted.getIsDeleted()).isEqualTo(0);
+        assertThat(inserted.getCreatedBy()).isEqualTo(2L);
+        assertThat(inserted.getUpdatedBy()).isEqualTo(2L);
+    }
+
+    @Test
+    void shouldReturnForbiddenWhenEmployeeCreatesKnowledge() {
+        KnowledgeCreateDTO request = new KnowledgeCreateDTO();
+        request.setCategoryId(3L);
+        request.setTitle("员工新增知识");
+        request.setKeywords("员工,新增");
+        request.setContent("员工不允许新增知识。");
+        request.setStatus(1);
+
+        when(sysUserMapper.selectById(1L)).thenReturn(user(1L, "EMPLOYEE", 1));
+
+        assertThatThrownBy(() -> knowledgeService.createKnowledge(1L, request))
+                .isInstanceOfSatisfying(BusinessException.class, exception ->
+                        assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.FORBIDDEN));
+
+        verify(knowledgeMapper, never()).insert(any(Knowledge.class));
+    }
+
+    @Test
+    void shouldReturnNotFoundWhenCreateKnowledgeCategoryDoesNotExist() {
+        KnowledgeCreateDTO request = new KnowledgeCreateDTO();
+        request.setCategoryId(999L);
+        request.setTitle("不存在分类知识");
+        request.setKeywords("分类,不存在");
+        request.setContent("分类不存在时不能新增知识。");
+        request.setStatus(1);
+
+        when(sysUserMapper.selectById(2L)).thenReturn(user(2L, "ADMIN", 1));
+        when(categoryMapper.selectById(999L)).thenReturn(null);
+
+        assertThatThrownBy(() -> knowledgeService.createKnowledge(2L, request))
+                .isInstanceOfSatisfying(BusinessException.class, exception ->
+                        assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.DATA_NOT_FOUND));
+
+        verify(knowledgeMapper, never()).insert(any(Knowledge.class));
     }
 }

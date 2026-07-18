@@ -10,6 +10,10 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import com.workmate.ai.dto.KnowledgeCreateDTO;
+import jakarta.validation.Valid;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 
 @RestController
 public class KnowledgeController {
@@ -36,5 +40,12 @@ public class KnowledgeController {
             @RequestHeader("X-User-Id") Long userId,
             @PathVariable("id") Long knowledgeId) {
         return CommonResult.success(knowledgeService.getKnowledgeDetail(userId, knowledgeId));
+    }
+
+    @PostMapping("/api/knowledge")
+    public CommonResult<KnowledgeDetailVO> createKnowledge(
+            @RequestHeader("X-User-Id") Long userId,
+            @Valid @RequestBody KnowledgeCreateDTO request) {
+        return CommonResult.success(knowledgeService.createKnowledge(userId, request));
     }
 }

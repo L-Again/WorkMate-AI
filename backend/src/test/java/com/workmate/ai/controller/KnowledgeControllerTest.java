@@ -7,6 +7,7 @@ import com.workmate.ai.vo.KnowledgeListItemVO;
 import com.workmate.ai.exception.BusinessException;
 import com.workmate.ai.common.ErrorCode;
 import com.workmate.ai.vo.KnowledgeDetailVO;
+import com.workmate.ai.dto.KnowledgeCreateDTO;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
@@ -23,6 +24,9 @@ import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 
 @WebMvcTest(KnowledgeController.class)
 @Import(GlobalExceptionHandler.class)
@@ -105,5 +109,39 @@ class KnowledgeControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code", is(40401)))
                 .andExpect(jsonPath("$.message", is("数据不存在")));
+    }
+
+    @Test
+    void shouldCreateKnowledge() throws Exception {
+        when(knowledgeService.createKnowledge(eq(2L), any(KnowledgeCreateDTO.class)))
+                .thenReturn(new KnowledgeDetailVO(
+                        10L,
+                        3L,
+                        "研发规范",
+                        "Java 接口返回规范",
+                        "Java,接口,返回",
+                        "后端接口统一使用 CommonResult 返回。",
+                        1,
+                        LocalDateTime.of(2026, 7, 18, 17, 0)
+                ));
+
+        mockMvc.perform(post("/api/knowledge")
+                        .header("X-User-Id", "2")
+                        .contentType("application/json")
+                        .content("""
+                            {
+                              "categoryId": 3,
+                              "title": "Java 接口返回规范",
+                              "keywords": "Java,接口,返回",
+                              "content": "后端接口统一使用 CommonResult 返回。",
+                              "status": 1
+                            }
+                            """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code", is(200)))
+                .andExpect(jsonPath("$.data.id", is(10)))
+                .andExpect(jsonPath("$.data.categoryId", is(3)))
+                .andExpect(jsonPath("$.data.title", is("Java 接口返回规范")))
+                .andExpect(jsonPath("$.data.status", is(1)));
     }
 }

@@ -3,6 +3,7 @@ package com.workmate.ai.service;
 import com.workmate.ai.common.PageResult;
 import com.workmate.ai.vo.KnowledgeListItemVO;
 import com.workmate.ai.vo.KnowledgeDetailVO;
+import com.workmate.ai.dto.KnowledgeCreateDTO;
 
 public interface KnowledgeService {
 
@@ -11,4 +12,7 @@ public interface KnowledgeService {
                                                   String keyword, Long categoryId, Integer status);
 
     KnowledgeDetailVO getKnowledgeDetail(Long userId, Long knowledgeId);
+
+    KnowledgeDetailVO createKnowledge(Long userId, KnowledgeCreateDTO request);
+
 }

@@ -9,7 +9,12 @@ import com.workmate.ai.mapper.SysUserMapper;
 import com.workmate.ai.service.KnowledgeService;
 import com.workmate.ai.vo.KnowledgeListItemVO;
 import com.workmate.ai.vo.KnowledgeDetailVO;
+import com.workmate.ai.dto.KnowledgeCreateDTO;
 import org.springframework.stereotype.Service;
+import com.workmate.ai.entity.Knowledge;
+import com.workmate.ai.entity.KnowledgeCategory;
+import com.workmate.ai.mapper.KnowledgeCategoryMapper;
+
 
 import java.util.List;
 
@@ -17,13 +22,19 @@ import java.util.List;
 public class KnowledgeServiceImpl implements KnowledgeService {
 
     private static final int ENABLED_STATUS = 1;
+    private static final int NOT_DELETED = 0;
+    private static final String ADMIN_ROLE = "ADMIN";
 
     private final SysUserMapper sysUserMapper;
     private final KnowledgeMapper knowledgeMapper;
+    private final KnowledgeCategoryMapper categoryMapper;
 
-    public KnowledgeServiceImpl(SysUserMapper sysUserMapper, KnowledgeMapper knowledgeMapper) {
+    public KnowledgeServiceImpl(SysUserMapper sysUserMapper,
+                                KnowledgeMapper knowledgeMapper,
+                                KnowledgeCategoryMapper categoryMapper) {
         this.sysUserMapper = sysUserMapper;
         this.knowledgeMapper = knowledgeMapper;
+        this.categoryMapper = categoryMapper;
     }
 
     @Override
@@ -58,5 +69,36 @@ public class KnowledgeServiceImpl implements KnowledgeService {
         }
 
         return detail;
+    }
+
+    @Override
+    public KnowledgeDetailVO createKnowledge(Long userId, KnowledgeCreateDTO request) {
+        SysUser user = sysUserMapper.selectById(userId);
+        if (user == null || !Integer.valueOf(ENABLED_STATUS).equals(user.getStatus())) {
+            throw new BusinessException(ErrorCode.USER_NOT_FOUND_OR_DISABLED);
+        }
+
+        if (!ADMIN_ROLE.equals(user.getRole())) {
+            throw new BusinessException(ErrorCode.FORBIDDEN);
+        }
+
+        KnowledgeCategory category = categoryMapper.selectById(request.getCategoryId());
+        if (category == null || !Integer.valueOf(NOT_DELETED).equals(category.getIsDeleted())) {
+            throw new BusinessException(ErrorCode.DATA_NOT_FOUND);
+        }
+
+        Knowledge knowledge = new Knowledge();
+        knowledge.setCategoryId(request.getCategoryId());
+        knowledge.setTitle(request.getTitle());
+        knowledge.setKeywords(request.getKeywords());
+        knowledge.setContent(request.getContent());
+        knowledge.setStatus(request.getStatus());
+        knowledge.setIsDeleted(NOT_DELETED);
+        knowledge.setCreatedBy(userId);
+        knowledge.setUpdatedBy(userId);
+
+        knowledgeMapper.insert(knowledge);
+
+        return knowledgeMapper.selectKnowledgeDetail(knowledge.getId());
     }
 }

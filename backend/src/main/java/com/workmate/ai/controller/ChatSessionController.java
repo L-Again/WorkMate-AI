@@ -17,6 +17,7 @@ import org.springframework.web.bind.annotation.RestController;
 import com.workmate.ai.common.PageResult;
 import com.workmate.ai.vo.SessionListVO;
 import org.springframework.web.bind.annotation.RequestParam;
+import com.workmate.ai.vo.MessageVO;
 
 @RestController
 public class ChatSessionController {
@@ -40,6 +41,15 @@ public class ChatSessionController {
             @RequestParam(defaultValue = "1") Long pageNum,
             @RequestParam(defaultValue = "20") Long pageSize) {
         return CommonResult.success(chatSessionService.listSessions(userId, pageNum, pageSize));
+    }
+
+    @GetMapping("/api/chat/sessions/{sessionId}/messages")
+    public CommonResult<PageResult<MessageVO>> listMessages(
+            @RequestHeader("X-User-Id") Long userId,
+            @PathVariable Long sessionId,
+            @RequestParam(defaultValue = "1") Long pageNum,
+            @RequestParam(defaultValue = "50") Long pageSize) {
+        return CommonResult.success(chatSessionService.listMessages(userId, sessionId, pageNum, pageSize));
     }
 
     @GetMapping("/api/chat/sessions/{sessionId}")

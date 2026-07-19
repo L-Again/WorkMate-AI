@@ -13,6 +13,8 @@ import com.workmate.ai.vo.SessionVO;
 import org.springframework.stereotype.Service;
 import com.workmate.ai.common.PageResult;
 import com.workmate.ai.vo.SessionListVO;
+import com.workmate.ai.mapper.ChatMessageMapper;
+import com.workmate.ai.vo.MessageVO;
 
 import java.util.List;
 
@@ -26,10 +28,14 @@ public class ChatSessionServiceImpl implements ChatSessionService {
 
     private final SysUserMapper sysUserMapper;
     private final ChatSessionMapper chatSessionMapper;
+    private final ChatMessageMapper chatMessageMapper;
 
-    public ChatSessionServiceImpl(SysUserMapper sysUserMapper, ChatSessionMapper chatSessionMapper) {
+    public ChatSessionServiceImpl(SysUserMapper sysUserMapper,
+                                  ChatSessionMapper chatSessionMapper,
+                                  ChatMessageMapper chatMessageMapper) {
         this.sysUserMapper = sysUserMapper;
         this.chatSessionMapper = chatSessionMapper;
+        this.chatMessageMapper = chatMessageMapper;
     }
 
     @Override
@@ -57,6 +63,22 @@ public class ChatSessionServiceImpl implements ChatSessionService {
 
         Long total = chatSessionMapper.countActiveSessions(userId);
         List<SessionListVO> records = chatSessionMapper.selectSessionPage(userId, offset, safePageSize);
+        long pages = total == 0 ? 0 : (total + safePageSize - 1) / safePageSize;
+
+        return new PageResult<>(records, safePageNum, safePageSize, total, pages);
+    }
+
+    @Override
+    public PageResult<MessageVO> listMessages(Long userId, Long sessionId, Long pageNum, Long pageSize) {
+        validateEnabledUser(userId);
+        getOwnedActiveSession(userId, sessionId);
+
+        long safePageNum = pageNum == null || pageNum < 1 ? 1 : pageNum;
+        long safePageSize = pageSize == null || pageSize < 1 ? 50 : Math.min(pageSize, 100);
+        long offset = (safePageNum - 1) * safePageSize;
+
+        Long total = chatMessageMapper.countMessagesBySession(sessionId);
+        List<MessageVO> records = chatMessageMapper.selectMessagesBySession(sessionId, offset, safePageSize);
         long pages = total == 0 ? 0 : (total + safePageSize - 1) / safePageSize;
 
         return new PageResult<>(records, safePageNum, safePageSize, total, pages);

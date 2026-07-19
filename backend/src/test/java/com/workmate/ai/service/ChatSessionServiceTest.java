@@ -18,7 +18,8 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import com.workmate.ai.common.PageResult;
 import com.workmate.ai.vo.SessionListVO;
-
+import com.workmate.ai.mapper.ChatMessageMapper;
+import com.workmate.ai.vo.MessageVO;
 import java.util.List;
 import java.time.LocalDateTime;
 
@@ -40,9 +41,12 @@ class ChatSessionServiceTest {
 
     private ChatSessionService chatSessionService;
 
+    @Mock
+    private ChatMessageMapper chatMessageMapper;
+
     @BeforeEach
     void setUp() {
-        chatSessionService = new ChatSessionServiceImpl(sysUserMapper, chatSessionMapper);
+        chatSessionService = new ChatSessionServiceImpl(sysUserMapper, chatSessionMapper, chatMessageMapper);
     }
 
     @Test
@@ -99,6 +103,66 @@ class ChatSessionServiceTest {
         assertThat(result.getRecords().get(0).getSessionId()).isEqualTo(10L);
         assertThat(result.getRecords().get(0).getTitle()).isEqualTo("空会话");
         assertThat(result.getRecords().get(0).getLastMessage()).isNull();
+    }
+
+    @Test
+    void shouldListOwnSessionMessages() {
+        when(sysUserMapper.selectById(1L)).thenReturn(user(1L, 1));
+
+        ChatSession session = session(10L, 1L, "Git 规范咨询", 0);
+        when(chatSessionMapper.selectById(10L)).thenReturn(session);
+
+        MessageVO message = new MessageVO(
+                101L,
+                10L,
+                "USER",
+                "Git 分支应该怎么命名？",
+                0,
+                0,
+                LocalDateTime.of(2026, 7, 19, 12, 40)
+        );
+
+        when(chatMessageMapper.countMessagesBySession(10L)).thenReturn(1L);
+        when(chatMessageMapper.selectMessagesBySession(10L, 0L, 50L))
+                .thenReturn(List.of(message));
+
+        PageResult<MessageVO> result = chatSessionService.listMessages(1L, 10L, 1L, 50L);
+
+        assertThat(result.getPageNum()).isEqualTo(1L);
+        assertThat(result.getPageSize()).isEqualTo(50L);
+        assertThat(result.getTotal()).isEqualTo(1L);
+        assertThat(result.getRecords()).hasSize(1);
+        assertThat(result.getRecords().get(0).getMessageId()).isEqualTo(101L);
+        assertThat(result.getRecords().get(0).getRole()).isEqualTo("USER");
+        assertThat(result.getRecords().get(0).getContent()).isEqualTo("Git 分支应该怎么命名？");
+    }
+
+    @Test
+    void shouldReturnNotFoundWhenListingOtherUserMessages() {
+        when(sysUserMapper.selectById(1L)).thenReturn(user(1L, 1));
+
+        ChatSession session = session(10L, 2L, "别人的会话", 0);
+        when(chatSessionMapper.selectById(10L)).thenReturn(session);
+
+        assertThatThrownBy(() -> chatSessionService.listMessages(1L, 10L, 1L, 50L))
+                .isInstanceOfSatisfying(BusinessException.class, exception ->
+                        assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.DATA_NOT_FOUND));
+
+        verify(chatMessageMapper, never()).countMessagesBySession(any());
+        verify(chatMessageMapper, never()).selectMessagesBySession(any(), any(), any());
+    }
+
+    @Test
+    void shouldReturnUserNotFoundWhenListingMessagesWithMissingUser() {
+        when(sysUserMapper.selectById(999L)).thenReturn(null);
+
+        assertThatThrownBy(() -> chatSessionService.listMessages(999L, 10L, 1L, 50L))
+                .isInstanceOfSatisfying(BusinessException.class, exception ->
+                        assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.USER_NOT_FOUND_OR_DISABLED));
+
+        verify(chatSessionMapper, never()).selectById(any());
+        verify(chatMessageMapper, never()).countMessagesBySession(any());
+        verify(chatMessageMapper, never()).selectMessagesBySession(any(), any(), any());
     }
 
     @Test

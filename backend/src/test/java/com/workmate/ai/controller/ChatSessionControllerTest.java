@@ -15,7 +15,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import java.time.LocalDateTime;
 import com.workmate.ai.common.PageResult;
 import com.workmate.ai.vo.SessionListVO;
-
+import com.workmate.ai.vo.MessageVO;
 import java.util.List;
 import static org.hamcrest.Matchers.is;
 import static org.mockito.ArgumentMatchers.any;
@@ -90,6 +90,40 @@ class ChatSessionControllerTest {
                 .andExpect(jsonPath("$.data.records[0].lastMessage", is("功能分支统一使用 feature/功能名称。")))
                 .andExpect(jsonPath("$.data.pageNum", is(1)))
                 .andExpect(jsonPath("$.data.pageSize", is(20)))
+                .andExpect(jsonPath("$.data.total", is(1)));
+    }
+
+    @Test
+    void shouldListMessages() throws Exception {
+        when(chatSessionService.listMessages(1L, 10L, 1L, 50L))
+                .thenReturn(new PageResult<>(
+                        List.of(new MessageVO(
+                                101L,
+                                10L,
+                                "USER",
+                                "Git 分支应该怎么命名？",
+                                0,
+                                0,
+                                LocalDateTime.of(2026, 7, 19, 12, 40)
+                        )),
+                        1L,
+                        50L,
+                        1L,
+                        1L
+                ));
+
+        mockMvc.perform(get("/api/chat/sessions/{sessionId}/messages", 10L)
+                        .header("X-User-Id", "1")
+                        .param("pageNum", "1")
+                        .param("pageSize", "50"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code", is(200)))
+                .andExpect(jsonPath("$.data.records[0].messageId", is(101)))
+                .andExpect(jsonPath("$.data.records[0].sessionId", is(10)))
+                .andExpect(jsonPath("$.data.records[0].role", is("USER")))
+                .andExpect(jsonPath("$.data.records[0].content", is("Git 分支应该怎么命名？")))
+                .andExpect(jsonPath("$.data.pageNum", is(1)))
+                .andExpect(jsonPath("$.data.pageSize", is(50)))
                 .andExpect(jsonPath("$.data.total", is(1)));
     }
 

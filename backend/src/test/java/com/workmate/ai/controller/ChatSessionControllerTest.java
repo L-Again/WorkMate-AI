@@ -13,7 +13,10 @@ import org.springframework.context.annotation.Import;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.time.LocalDateTime;
+import com.workmate.ai.common.PageResult;
+import com.workmate.ai.vo.SessionListVO;
 
+import java.util.List;
 import static org.hamcrest.Matchers.is;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -57,6 +60,37 @@ class ChatSessionControllerTest {
                 .andExpect(jsonPath("$.code", is(200)))
                 .andExpect(jsonPath("$.data.sessionId", is(10)))
                 .andExpect(jsonPath("$.data.title", is("Git 规范咨询")));
+    }
+
+    @Test
+    void shouldListSessions() throws Exception {
+        when(chatSessionService.listSessions(1L, 1L, 20L))
+                .thenReturn(new PageResult<>(
+                        List.of(new SessionListVO(
+                                10L,
+                                "Git 规范咨询",
+                                "功能分支统一使用 feature/功能名称。",
+                                LocalDateTime.of(2026, 7, 19, 12, 10),
+                                LocalDateTime.of(2026, 7, 19, 11, 40)
+                        )),
+                        1L,
+                        20L,
+                        1L,
+                        1L
+                ));
+
+        mockMvc.perform(get("/api/chat/sessions")
+                        .header("X-User-Id", "1")
+                        .param("pageNum", "1")
+                        .param("pageSize", "20"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code", is(200)))
+                .andExpect(jsonPath("$.data.records[0].sessionId", is(10)))
+                .andExpect(jsonPath("$.data.records[0].title", is("Git 规范咨询")))
+                .andExpect(jsonPath("$.data.records[0].lastMessage", is("功能分支统一使用 feature/功能名称。")))
+                .andExpect(jsonPath("$.data.pageNum", is(1)))
+                .andExpect(jsonPath("$.data.pageSize", is(20)))
+                .andExpect(jsonPath("$.data.total", is(1)));
     }
 
     @Test

@@ -14,6 +14,9 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RestController;
+import com.workmate.ai.common.PageResult;
+import com.workmate.ai.vo.SessionListVO;
+import org.springframework.web.bind.annotation.RequestParam;
 
 @RestController
 public class ChatSessionController {
@@ -29,6 +32,14 @@ public class ChatSessionController {
             @RequestHeader("X-User-Id") Long userId,
             @Valid @RequestBody SessionCreateDTO request) {
         return CommonResult.success(chatSessionService.createSession(userId, request));
+    }
+
+    @GetMapping("/api/chat/sessions")
+    public CommonResult<PageResult<SessionListVO>> listSessions(
+            @RequestHeader("X-User-Id") Long userId,
+            @RequestParam(defaultValue = "1") Long pageNum,
+            @RequestParam(defaultValue = "20") Long pageSize) {
+        return CommonResult.success(chatSessionService.listSessions(userId, pageNum, pageSize));
     }
 
     @GetMapping("/api/chat/sessions/{sessionId}")

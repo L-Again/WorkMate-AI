@@ -16,7 +16,10 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import com.workmate.ai.common.PageResult;
+import com.workmate.ai.vo.SessionListVO;
 
+import java.util.List;
 import java.time.LocalDateTime;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -68,6 +71,46 @@ class ChatSessionServiceTest {
         assertThat(inserted.getUserId()).isEqualTo(1L);
         assertThat(inserted.getTitle()).isEqualTo("Git 规范咨询");
         assertThat(inserted.getIsDeleted()).isEqualTo(0);
+    }
+
+    @Test
+    void shouldListSessionsWithEmptySession() {
+        when(sysUserMapper.selectById(1L)).thenReturn(user(1L, 1));
+
+        SessionListVO emptySession = new SessionListVO(
+                10L,
+                "空会话",
+                null,
+                null,
+                LocalDateTime.of(2026, 7, 19, 11, 40)
+        );
+
+        when(chatSessionMapper.countActiveSessions(1L)).thenReturn(1L);
+        when(chatSessionMapper.selectSessionPage(1L, 0L, 20L))
+                .thenReturn(List.of(emptySession));
+
+        PageResult<SessionListVO> result = chatSessionService.listSessions(1L, 1L, 20L);
+
+        assertThat(result.getPageNum()).isEqualTo(1L);
+        assertThat(result.getPageSize()).isEqualTo(20L);
+        assertThat(result.getTotal()).isEqualTo(1L);
+        assertThat(result.getPages()).isEqualTo(1L);
+        assertThat(result.getRecords()).hasSize(1);
+        assertThat(result.getRecords().get(0).getSessionId()).isEqualTo(10L);
+        assertThat(result.getRecords().get(0).getTitle()).isEqualTo("空会话");
+        assertThat(result.getRecords().get(0).getLastMessage()).isNull();
+    }
+
+    @Test
+    void shouldReturnUserNotFoundWhenListingSessionsWithMissingUser() {
+        when(sysUserMapper.selectById(999L)).thenReturn(null);
+
+        assertThatThrownBy(() -> chatSessionService.listSessions(999L, 1L, 20L))
+                .isInstanceOfSatisfying(BusinessException.class, exception ->
+                        assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.USER_NOT_FOUND_OR_DISABLED));
+
+        verify(chatSessionMapper, never()).countActiveSessions(any());
+        verify(chatSessionMapper, never()).selectSessionPage(any(), any(), any());
     }
 
     @Test

@@ -11,6 +11,10 @@ import com.workmate.ai.mapper.SysUserMapper;
 import com.workmate.ai.service.ChatSessionService;
 import com.workmate.ai.vo.SessionVO;
 import org.springframework.stereotype.Service;
+import com.workmate.ai.common.PageResult;
+import com.workmate.ai.vo.SessionListVO;
+
+import java.util.List;
 
 @Service
 public class ChatSessionServiceImpl implements ChatSessionService {
@@ -41,6 +45,21 @@ public class ChatSessionServiceImpl implements ChatSessionService {
 
         ChatSession createdSession = chatSessionMapper.selectById(session.getId());
         return toVO(createdSession == null ? session : createdSession);
+    }
+
+    @Override
+    public PageResult<SessionListVO> listSessions(Long userId, Long pageNum, Long pageSize) {
+        validateEnabledUser(userId);
+
+        long safePageNum = pageNum == null || pageNum < 1 ? 1 : pageNum;
+        long safePageSize = pageSize == null || pageSize < 1 ? 20 : Math.min(pageSize, 100);
+        long offset = (safePageNum - 1) * safePageSize;
+
+        Long total = chatSessionMapper.countActiveSessions(userId);
+        List<SessionListVO> records = chatSessionMapper.selectSessionPage(userId, offset, safePageSize);
+        long pages = total == 0 ? 0 : (total + safePageSize - 1) / safePageSize;
+
+        return new PageResult<>(records, safePageNum, safePageSize, total, pages);
     }
 
     @Override

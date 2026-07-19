@@ -19,7 +19,7 @@ import com.workmate.ai.dto.KnowledgeStatusDTO;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import java.time.LocalDateTime;
 import java.util.List;
-
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.is;
 import static org.mockito.Mockito.when;
@@ -208,5 +208,16 @@ class KnowledgeControllerTest {
                 .andExpect(jsonPath("$.code", is(200)))
                 .andExpect(jsonPath("$.data.id", is(1)))
                 .andExpect(jsonPath("$.data.status", is(0)));
+    }
+
+    @Test
+    void shouldDeleteKnowledge() throws Exception {
+        when(knowledgeService.deleteKnowledge(2L, 1L)).thenReturn(true);
+
+        mockMvc.perform(delete("/api/knowledge/{id}", 1L)
+                        .header("X-User-Id", "2"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code", is(200)))
+                .andExpect(jsonPath("$.data", is(true)));
     }
 }

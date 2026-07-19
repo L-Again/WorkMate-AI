@@ -454,4 +454,50 @@ class KnowledgeServiceTest {
         verify(knowledgeMapper, never()).updateById(any(Knowledge.class));
     }
 
+    @Test
+    void shouldDeleteKnowledgeWhenAdmin() {
+        Knowledge existing = new Knowledge();
+        existing.setId(1L);
+        existing.setIsDeleted(0);
+
+        when(sysUserMapper.selectById(2L)).thenReturn(user(2L, "ADMIN", 1));
+        when(knowledgeMapper.selectById(1L)).thenReturn(existing);
+        when(knowledgeMapper.updateById(any(Knowledge.class))).thenReturn(1);
+
+        Boolean result = knowledgeService.deleteKnowledge(2L, 1L);
+
+        assertThat(result).isTrue();
+
+        ArgumentCaptor<Knowledge> captor = ArgumentCaptor.forClass(Knowledge.class);
+        verify(knowledgeMapper).updateById(captor.capture());
+
+        Knowledge deleted = captor.getValue();
+        assertThat(deleted.getId()).isEqualTo(1L);
+        assertThat(deleted.getIsDeleted()).isEqualTo(1);
+        assertThat(deleted.getUpdatedBy()).isEqualTo(2L);
+    }
+
+    @Test
+    void shouldReturnForbiddenWhenEmployeeDeletesKnowledge() {
+        when(sysUserMapper.selectById(1L)).thenReturn(user(1L, "EMPLOYEE", 1));
+
+        assertThatThrownBy(() -> knowledgeService.deleteKnowledge(1L, 1L))
+                .isInstanceOfSatisfying(BusinessException.class, exception ->
+                        assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.FORBIDDEN));
+
+        verify(knowledgeMapper, never()).updateById(any(Knowledge.class));
+    }
+
+    @Test
+    void shouldReturnNotFoundWhenDeletingMissingKnowledge() {
+        when(sysUserMapper.selectById(2L)).thenReturn(user(2L, "ADMIN", 1));
+        when(knowledgeMapper.selectById(999L)).thenReturn(null);
+
+        assertThatThrownBy(() -> knowledgeService.deleteKnowledge(2L, 999L))
+                .isInstanceOfSatisfying(BusinessException.class, exception ->
+                        assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.DATA_NOT_FOUND));
+
+        verify(knowledgeMapper, never()).updateById(any(Knowledge.class));
+    }
+
 }

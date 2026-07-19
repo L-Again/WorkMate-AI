@@ -164,4 +164,31 @@ public class KnowledgeServiceImpl implements KnowledgeService {
 
         return knowledgeMapper.selectKnowledgeDetail(knowledgeId);
     }
+
+    @Override
+    public Boolean deleteKnowledge(Long userId, Long knowledgeId) {
+        SysUser user = sysUserMapper.selectById(userId);
+        if (user == null || !Integer.valueOf(ENABLED_STATUS).equals(user.getStatus())) {
+            throw new BusinessException(ErrorCode.USER_NOT_FOUND_OR_DISABLED);
+        }
+
+        if (!ADMIN_ROLE.equals(user.getRole())) {
+            throw new BusinessException(ErrorCode.FORBIDDEN);
+        }
+
+        Knowledge existing = knowledgeMapper.selectById(knowledgeId);
+        if (existing == null || !Integer.valueOf(NOT_DELETED).equals(existing.getIsDeleted())) {
+            throw new BusinessException(ErrorCode.DATA_NOT_FOUND);
+        }
+
+        Knowledge knowledge = new Knowledge();
+        knowledge.setId(knowledgeId);
+        knowledge.setIsDeleted(1);
+        knowledge.setUpdatedBy(userId);
+
+        knowledgeMapper.updateById(knowledge);
+
+        return true;
+    }
+
 }

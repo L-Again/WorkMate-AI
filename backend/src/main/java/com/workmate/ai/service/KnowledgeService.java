@@ -20,4 +20,7 @@ public interface KnowledgeService {
     KnowledgeDetailVO updateKnowledge(Long userId, Long knowledgeId, KnowledgeUpdateDTO request);
 
     KnowledgeDetailVO updateKnowledgeStatus(Long userId, Long knowledgeId, KnowledgeStatusDTO request);
+
+    Boolean deleteKnowledge(Long userId, Long knowledgeId);
+
 }

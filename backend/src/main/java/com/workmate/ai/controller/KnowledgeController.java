@@ -18,6 +18,7 @@ import com.workmate.ai.dto.KnowledgeUpdateDTO;
 import org.springframework.web.bind.annotation.PutMapping;
 import com.workmate.ai.dto.KnowledgeStatusDTO;
 import org.springframework.web.bind.annotation.PatchMapping;
+import org.springframework.web.bind.annotation.DeleteMapping;
 
 @RestController
 public class KnowledgeController {
@@ -67,5 +68,12 @@ public class KnowledgeController {
             @PathVariable("id") Long knowledgeId,
             @Valid @RequestBody KnowledgeStatusDTO request) {
         return CommonResult.success(knowledgeService.updateKnowledgeStatus(userId, knowledgeId, request));
+    }
+
+    @DeleteMapping("/api/knowledge/{id}")
+    public CommonResult<Boolean> deleteKnowledge(
+            @RequestHeader("X-User-Id") Long userId,
+            @PathVariable("id") Long knowledgeId) {
+        return CommonResult.success(knowledgeService.deleteKnowledge(userId, knowledgeId));
     }
 }

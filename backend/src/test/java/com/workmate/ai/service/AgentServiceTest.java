@@ -5,6 +5,7 @@ import com.workmate.ai.client.LlmRequest;
 import com.workmate.ai.client.LlmResponse;
 import com.workmate.ai.common.ErrorCode;
 import com.workmate.ai.dto.AgentChatDTO;
+import com.workmate.ai.dto.ModelCallLogCreateDTO;
 import com.workmate.ai.entity.ChatMessage;
 import com.workmate.ai.entity.ChatSession;
 import com.workmate.ai.entity.KnowledgeReference;
@@ -71,6 +72,10 @@ class AgentServiceTest {
 
     private AgentService agentService;
 
+    @Mock
+    private ModelCallLogService modelCallLogService;
+
+
     @BeforeEach
     void setUp() {
         agentService = new AgentServiceImpl(
@@ -81,7 +86,8 @@ class AgentServiceTest {
                 knowledgeService,
                 promptBuilder,
                 llmClient,
-                agentAnswerCacheService
+                agentAnswerCacheService,
+                modelCallLogService
         );
     }
 
@@ -192,6 +198,19 @@ class AgentServiceTest {
         assertThat(savedCacheValue.getReferences().get(0).getKnowledgeId()).isEqualTo(3L);
 
         verify(chatSessionMapper, times(2)).updateById(any(ChatSession.class));
+
+        ArgumentCaptor<ModelCallLogCreateDTO> logCaptor = ArgumentCaptor.forClass(ModelCallLogCreateDTO.class);
+        verify(modelCallLogService).recordAsync(logCaptor.capture());
+
+        ModelCallLogCreateDTO logRequest = logCaptor.getValue();
+        assertThat(logRequest.getUserId()).isEqualTo(1L);
+        assertThat(logRequest.getSessionId()).isEqualTo(10L);
+        assertThat(logRequest.getQuestionMessageId()).isEqualTo(101L);
+        assertThat(logRequest.getAnswerMessageId()).isEqualTo(102L);
+        assertThat(logRequest.getModelName()).isEqualTo("mock-llm");
+        assertThat(logRequest.getFromCache()).isFalse();
+        assertThat(logRequest.getCallStatus()).isEqualTo("SUCCESS");
+        assertThat(logRequest.getDurationMs()).isGreaterThanOrEqualTo(0L);
     }
 
     @Test
@@ -260,6 +279,20 @@ class AgentServiceTest {
         verify(llmClient, never()).chat(any());
         verify(agentAnswerCacheService, never()).save(any(), any());
         verify(chatSessionMapper, times(2)).updateById(any(ChatSession.class));
+
+        ArgumentCaptor<ModelCallLogCreateDTO> logCaptor = ArgumentCaptor.forClass(ModelCallLogCreateDTO.class);
+        verify(modelCallLogService).recordAsync(logCaptor.capture());
+
+        ModelCallLogCreateDTO logRequest = logCaptor.getValue();
+        assertThat(logRequest.getUserId()).isEqualTo(1L);
+        assertThat(logRequest.getSessionId()).isEqualTo(10L);
+        assertThat(logRequest.getQuestionMessageId()).isEqualTo(401L);
+        assertThat(logRequest.getAnswerMessageId()).isEqualTo(402L);
+        assertThat(logRequest.getModelName()).isNull();
+        assertThat(logRequest.getFromCache()).isTrue();
+        assertThat(logRequest.getCallStatus()).isEqualTo("CACHE_HIT");
+        assertThat(logRequest.getDurationMs()).isGreaterThanOrEqualTo(0L);
+
     }
 
     @Test
@@ -310,6 +343,19 @@ class AgentServiceTest {
         assertThat(savedMessages.get(1).getCanCreateTicket()).isEqualTo(1);
 
         verify(knowledgeReferenceMapper, never()).insert(any(KnowledgeReference.class));
+
+        ArgumentCaptor<ModelCallLogCreateDTO> logCaptor = ArgumentCaptor.forClass(ModelCallLogCreateDTO.class);
+        verify(modelCallLogService).recordAsync(logCaptor.capture());
+
+        ModelCallLogCreateDTO logRequest = logCaptor.getValue();
+        assertThat(logRequest.getUserId()).isEqualTo(1L);
+        assertThat(logRequest.getSessionId()).isEqualTo(10L);
+        assertThat(logRequest.getQuestionMessageId()).isEqualTo(201L);
+        assertThat(logRequest.getAnswerMessageId()).isEqualTo(202L);
+        assertThat(logRequest.getModelName()).isNull();
+        assertThat(logRequest.getFromCache()).isFalse();
+        assertThat(logRequest.getCallStatus()).isEqualTo("NO_KNOWLEDGE");
+        assertThat(logRequest.getDurationMs()).isGreaterThanOrEqualTo(0L);
     }
 
     @Test
@@ -365,6 +411,20 @@ class AgentServiceTest {
         verify(chatMessageMapper, times(1)).insert(any(ChatMessage.class));
         verify(knowledgeReferenceMapper, never()).insert(any(KnowledgeReference.class));
         verify(agentAnswerCacheService, never()).save(any(), any());
+
+        ArgumentCaptor<ModelCallLogCreateDTO> logCaptor = ArgumentCaptor.forClass(ModelCallLogCreateDTO.class);
+        verify(modelCallLogService).recordAsync(logCaptor.capture());
+
+        ModelCallLogCreateDTO logRequest = logCaptor.getValue();
+        assertThat(logRequest.getUserId()).isEqualTo(1L);
+        assertThat(logRequest.getSessionId()).isEqualTo(10L);
+        assertThat(logRequest.getQuestionMessageId()).isEqualTo(301L);
+        assertThat(logRequest.getAnswerMessageId()).isNull();
+        assertThat(logRequest.getModelName()).isEqualTo("mock-llm");
+        assertThat(logRequest.getFromCache()).isFalse();
+        assertThat(logRequest.getCallStatus()).isEqualTo("FAILED");
+        assertThat(logRequest.getErrorMessage()).isEqualTo("LLM unavailable");
+        assertThat(logRequest.getDurationMs()).isGreaterThanOrEqualTo(0L);
     }
 
     @Test

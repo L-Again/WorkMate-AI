@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.workmate.ai.mapper.ModelCallLogMapper">
+
+    <select id="countModelCallLogs" resultType="java.lang.Long">
+        SELECT COUNT(1)
+        FROM model_call_log
+        <where>
+            <if test="callStatus != null and callStatus != ''">
+                call_status = #{callStatus}
+            </if>
+        </where>
+    </select>
+
+    <select id="selectModelCallLogPage" resultType="com.workmate.ai.vo.ModelCallLogVO">
+        SELECT
+        id,
+        user_id AS userId,
+        session_id AS sessionId,
+        question_message_id AS questionMessageId,
+        answer_message_id AS answerMessageId,
+        model_name AS modelName,
+        CASE WHEN from_cache = 1 THEN TRUE ELSE FALSE END AS fromCache,
+        call_status AS callStatus,
+        duration_ms AS durationMs,
+        prompt_tokens AS promptTokens,
+        completion_tokens AS completionTokens,
+        error_message AS errorMessage,
+        created_at AS createdAt
+        FROM model_call_log
+        <where>
+            <if test="callStatus != null and callStatus != ''">
+                call_status = #{callStatus}
+            </if>
+        </where>
+        ORDER BY created_at DESC, id DESC
+        LIMIT #{pageSize} OFFSET #{offset}
+    </select>
+</mapper>

@@ -26,7 +26,8 @@ import com.workmate.ai.vo.KnowledgeListItemVO;
 import com.workmate.ai.vo.KnowledgeReferenceVO;
 import com.workmate.ai.vo.PromptKnowledgeItem;
 import org.springframework.stereotype.Service;
-
+import com.workmate.ai.dto.ModelCallLogCreateDTO;
+import com.workmate.ai.service.ModelCallLogService;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -45,6 +46,10 @@ public class AgentServiceImpl implements AgentService {
     private static final String ASSISTANT_ROLE = "ASSISTANT";
     private static final String MOCK_MODEL_NAME = "mock-llm";
     private static final String INSUFFICIENT_KNOWLEDGE_ANSWER = "当前知识库中没有找到可靠内容。你可以创建人工咨询工单。";
+    private static final String LOG_STATUS_CACHE_HIT = "CACHE_HIT";
+    private static final String LOG_STATUS_SUCCESS = "SUCCESS";
+    private static final String LOG_STATUS_FAILED = "FAILED";
+    private static final String LOG_STATUS_NO_KNOWLEDGE = "NO_KNOWLEDGE";
 
     private final SysUserMapper sysUserMapper;
     private final ChatSessionMapper chatSessionMapper;
@@ -54,6 +59,7 @@ public class AgentServiceImpl implements AgentService {
     private final PromptBuilder promptBuilder;
     private final LlmClient llmClient;
     private final AgentAnswerCacheService agentAnswerCacheService;
+    private final ModelCallLogService modelCallLogService;
 
     public AgentServiceImpl(SysUserMapper sysUserMapper,
                             ChatSessionMapper chatSessionMapper,
@@ -62,7 +68,8 @@ public class AgentServiceImpl implements AgentService {
                             KnowledgeService knowledgeService,
                             PromptBuilder promptBuilder,
                             LlmClient llmClient,
-                            AgentAnswerCacheService agentAnswerCacheService) {
+                            AgentAnswerCacheService agentAnswerCacheService,
+                            ModelCallLogService modelCallLogService) {
         this.sysUserMapper = sysUserMapper;
         this.chatSessionMapper = chatSessionMapper;
         this.chatMessageMapper = chatMessageMapper;
@@ -71,6 +78,7 @@ public class AgentServiceImpl implements AgentService {
         this.promptBuilder = promptBuilder;
         this.llmClient = llmClient;
         this.agentAnswerCacheService = agentAnswerCacheService;
+        this.modelCallLogService = modelCallLogService;
     }
 
     @Override
@@ -79,6 +87,7 @@ public class AgentServiceImpl implements AgentService {
         getOwnedActiveSession(userId, request.getSessionId());
 
         List<AgentTraceStepVO> traceSteps = new ArrayList<>();
+        long startTimeMillis = System.currentTimeMillis();
 
         String question = normalizeQuestion(request.getQuestion());
         ChatMessage questionMessage = saveMessage(
@@ -121,6 +130,20 @@ public class AgentServiceImpl implements AgentService {
                     true,
                     "缓存助手消息已保存"
             ));
+
+            recordModelCallLog(
+                    userId,
+                    request.getSessionId(),
+                    questionMessage.getId(),
+                    answerMessage.getId(),
+                    null,
+                    true,
+                    LOG_STATUS_CACHE_HIT,
+                    startTimeMillis,
+                    null,
+                    null,
+                    null
+            );
 
             return new AgentAnswerVO(
                     request.getSessionId(),
@@ -165,6 +188,20 @@ public class AgentServiceImpl implements AgentService {
                     "知识不足提示消息已保存"
             ));
 
+            recordModelCallLog(
+                    userId,
+                    request.getSessionId(),
+                    questionMessage.getId(),
+                    insufficientKnowledgeMessage.getId(),
+                    null,
+                    false,
+                    LOG_STATUS_NO_KNOWLEDGE,
+                    startTimeMillis,
+                    null,
+                    null,
+                    null
+            );
+
             return new AgentAnswerVO(
                     request.getSessionId(),
                     questionMessage.getId(),
@@ -190,6 +227,19 @@ public class AgentServiceImpl implements AgentService {
                     false,
                     "调用失败"
             ));
+            recordModelCallLog(
+                    userId,
+                    request.getSessionId(),
+                    questionMessage.getId(),
+                    null,
+                    MOCK_MODEL_NAME,
+                    false,
+                    LOG_STATUS_FAILED,
+                    startTimeMillis,
+                    null,
+                    null,
+                    exception.getMessage()
+            );
             throw new BusinessException(ErrorCode.LLM_CALL_FAILED);
         }
 
@@ -218,6 +268,20 @@ public class AgentServiceImpl implements AgentService {
                 true,
                 "助手消息已保存"
         ));
+
+        recordModelCallLog(
+                userId,
+                request.getSessionId(),
+                questionMessage.getId(),
+                answerMessage.getId(),
+                llmResponse.getModelName(),
+                false,
+                LOG_STATUS_SUCCESS,
+                startTimeMillis,
+                llmResponse.getPromptTokens(),
+                llmResponse.getCompletionTokens(),
+                null
+        );
 
         return new AgentAnswerVO(
                 request.getSessionId(),
@@ -337,6 +401,33 @@ public class AgentServiceImpl implements AgentService {
         reference.setKnowledgeId(knowledgeId);
 
         knowledgeReferenceMapper.insert(reference);
+    }
+
+    private void recordModelCallLog(Long userId,
+                                    Long sessionId,
+                                    Long questionMessageId,
+                                    Long answerMessageId,
+                                    String modelName,
+                                    Boolean fromCache,
+                                    String callStatus,
+                                    long startTimeMillis,
+                                    Integer promptTokens,
+                                    Integer completionTokens,
+                                    String errorMessage) {
+        ModelCallLogCreateDTO logRequest = new ModelCallLogCreateDTO();
+        logRequest.setUserId(userId);
+        logRequest.setSessionId(sessionId);
+        logRequest.setQuestionMessageId(questionMessageId);
+        logRequest.setAnswerMessageId(answerMessageId);
+        logRequest.setModelName(modelName);
+        logRequest.setFromCache(fromCache);
+        logRequest.setCallStatus(callStatus);
+        logRequest.setDurationMs(System.currentTimeMillis() - startTimeMillis);
+        logRequest.setPromptTokens(promptTokens);
+        logRequest.setCompletionTokens(completionTokens);
+        logRequest.setErrorMessage(errorMessage);
+
+        modelCallLogService.recordAsync(logRequest);
     }
 
     private String normalizeQuestion(String question) {

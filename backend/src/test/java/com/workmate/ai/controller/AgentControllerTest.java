@@ -12,7 +12,8 @@ import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.annotation.Import;
 import org.springframework.test.web.servlet.MockMvc;
-
+import com.workmate.ai.common.ErrorCode;
+import com.workmate.ai.exception.BusinessException;
 import java.util.List;
 
 import static org.hamcrest.Matchers.is;
@@ -76,5 +77,25 @@ class AgentControllerTest {
                 .andExpect(jsonPath("$.data.references[0].knowledgeId", is(3)))
                 .andExpect(jsonPath("$.data.references[0].title", is("Git 分支命名规范")))
                 .andExpect(jsonPath("$.data.traceSteps[0].step", is("LLM_CALL")));
+    }
+
+    @Test
+    void shouldReturnLlmFailureError() throws Exception {
+        when(agentService.chat(eq(1L), any(AgentChatDTO.class)))
+                .thenThrow(new BusinessException(ErrorCode.LLM_CALL_FAILED));
+
+        mockMvc.perform(post("/api/agent/chat")
+                        .header("X-User-Id", "1")
+                        .contentType("application/json")
+                        .content("""
+                        {
+                          "sessionId": 10,
+                          "question": "Git"
+                        }
+                        """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code", is(50004)))
+                .andExpect(jsonPath("$.message", is("大模型服务暂时不可用，请稍后重试")))
+                .andExpect(jsonPath("$.data").doesNotExist());
     }
 }

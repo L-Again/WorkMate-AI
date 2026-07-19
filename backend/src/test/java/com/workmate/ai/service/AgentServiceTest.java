@@ -21,7 +21,11 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import com.workmate.ai.common.ErrorCode;
+import com.workmate.ai.exception.BusinessException;
 
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.never;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -154,6 +158,103 @@ class AgentServiceTest {
         assertThat(llmRequestCaptor.getValue().getPrompt()).isEqualTo("测试 Prompt");
 
         verify(chatSessionMapper, times(2)).updateById(any(ChatSession.class));
+    }
+
+    @Test
+    void shouldReturnNoKnowledgeAnswerWithoutCallingLlm() {
+        AgentChatDTO request = new AgentChatDTO();
+        request.setSessionId(10L);
+        request.setQuestion("未知问题");
+
+        when(sysUserMapper.selectById(1L)).thenReturn(user(1L, 1));
+        when(chatSessionMapper.selectById(10L)).thenReturn(session(10L, 1L, 0));
+
+        when(chatMessageMapper.insert(any(ChatMessage.class))).thenAnswer(invocation -> {
+            ChatMessage message = invocation.getArgument(0);
+            if ("USER".equals(message.getRole())) {
+                message.setId(201L);
+            } else {
+                message.setId(202L);
+            }
+            return 1;
+        });
+
+        when(knowledgeService.searchKnowledge(1L, "未知问题", 5)).thenReturn(List.of());
+
+        AgentAnswerVO result = agentService.chat(1L, request);
+
+        assertThat(result.getSessionId()).isEqualTo(10L);
+        assertThat(result.getQuestionMessageId()).isEqualTo(201L);
+        assertThat(result.getAnswerMessageId()).isEqualTo(202L);
+        assertThat(result.getAnswer()).isEqualTo("当前知识库中没有找到可靠内容。你可以创建人工咨询工单。");
+        assertThat(result.getFromCache()).isFalse();
+        assertThat(result.getCanCreateTicket()).isTrue();
+        assertThat(result.getReferences()).isEmpty();
+
+        verify(promptBuilder, never()).buildKnowledgeAnswerPrompt(any(), any());
+        verify(llmClient, never()).chat(any());
+
+        ArgumentCaptor<ChatMessage> messageCaptor = ArgumentCaptor.forClass(ChatMessage.class);
+        verify(chatMessageMapper, times(2)).insert(messageCaptor.capture());
+
+        List<ChatMessage> savedMessages = messageCaptor.getAllValues();
+        assertThat(savedMessages.get(0).getRole()).isEqualTo("USER");
+        assertThat(savedMessages.get(0).getContent()).isEqualTo("未知问题");
+        assertThat(savedMessages.get(0).getCanCreateTicket()).isEqualTo(0);
+        assertThat(savedMessages.get(1).getRole()).isEqualTo("ASSISTANT");
+        assertThat(savedMessages.get(1).getContent()).isEqualTo("当前知识库中没有找到可靠内容。你可以创建人工咨询工单。");
+        assertThat(savedMessages.get(1).getCanCreateTicket()).isEqualTo(1);
+    }
+
+    @Test
+    void shouldNotSaveAssistantMessageWhenLlmFails() {
+        AgentChatDTO request = new AgentChatDTO();
+        request.setSessionId(10L);
+        request.setQuestion("Git");
+
+        when(sysUserMapper.selectById(1L)).thenReturn(user(1L, 1));
+        when(chatSessionMapper.selectById(10L)).thenReturn(session(10L, 1L, 0));
+
+        when(chatMessageMapper.insert(any(ChatMessage.class))).thenAnswer(invocation -> {
+            ChatMessage message = invocation.getArgument(0);
+            message.setId(301L);
+            return 1;
+        });
+
+        when(knowledgeService.searchKnowledge(1L, "Git", 5))
+                .thenReturn(List.of(new KnowledgeListItemVO(
+                        3L,
+                        3L,
+                        "研发规范",
+                        "Git 分支命名规范",
+                        "Git,分支,branch",
+                        1,
+                        LocalDateTime.of(2026, 7, 19, 14, 40)
+                )));
+
+        when(knowledgeService.getKnowledgeDetail(1L, 3L))
+                .thenReturn(new KnowledgeDetailVO(
+                        3L,
+                        3L,
+                        "研发规范",
+                        "Git 分支命名规范",
+                        "Git,分支,branch",
+                        "功能分支统一使用 feature/功能名称。",
+                        1,
+                        LocalDateTime.of(2026, 7, 19, 14, 40)
+                ));
+
+        when(promptBuilder.buildKnowledgeAnswerPrompt(eq("Git"), any()))
+                .thenReturn("测试 Prompt");
+
+        when(llmClient.chat(any(LlmRequest.class)))
+                .thenThrow(new RuntimeException("LLM unavailable"));
+
+        assertThatThrownBy(() -> agentService.chat(1L, request))
+                .isInstanceOfSatisfying(BusinessException.class, exception ->
+                        assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.LLM_CALL_FAILED));
+
+        verify(chatMessageMapper, times(1)).insert(any(ChatMessage.class));
     }
 
     private SysUser user(Long id, Integer status) {

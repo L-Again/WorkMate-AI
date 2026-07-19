@@ -37,7 +37,8 @@ public class AgentServiceImpl implements AgentService {
     private static final String USER_ROLE = "USER";
     private static final String ASSISTANT_ROLE = "ASSISTANT";
     private static final String MOCK_MODEL_NAME = "mock-llm";
-
+    private static final int CAN_CREATE_TICKET = 1;
+    private static final String INSUFFICIENT_KNOWLEDGE_ANSWER = "当前知识库中没有找到可靠内容。你可以创建人工咨询工单。";
     private final SysUserMapper sysUserMapper;
     private final ChatSessionMapper chatSessionMapper;
     private final ChatMessageMapper chatMessageMapper;
@@ -67,7 +68,13 @@ public class AgentServiceImpl implements AgentService {
         List<AgentTraceStepVO> traceSteps = new ArrayList<>();
 
         String question = normalizeQuestion(request.getQuestion());
-        ChatMessage questionMessage = saveMessage(request.getSessionId(), userId, USER_ROLE, question);
+        ChatMessage questionMessage = saveMessage(
+                request.getSessionId(),
+                userId,
+                USER_ROLE,
+                question,
+                CANNOT_CREATE_TICKET
+        );
         traceSteps.add(new AgentTraceStepVO(
                 "MESSAGE_SAVE",
                 "保存用户消息",
@@ -83,10 +90,49 @@ public class AgentServiceImpl implements AgentService {
                 "找到 " + knowledgeList.size() + " 条相关知识"
         ));
 
+        if (knowledgeList.isEmpty()) {
+            ChatMessage insufficientKnowledgeMessage = saveMessage(
+                    request.getSessionId(),
+                    userId,
+                    ASSISTANT_ROLE,
+                    INSUFFICIENT_KNOWLEDGE_ANSWER,
+                    CAN_CREATE_TICKET
+            );
+            traceSteps.add(new AgentTraceStepVO(
+                    "MESSAGE_SAVE",
+                    "保存知识不足提示",
+                    true,
+                    "知识不足提示消息已保存"
+            ));
+
+            return new AgentAnswerVO(
+                    request.getSessionId(),
+                    questionMessage.getId(),
+                    insufficientKnowledgeMessage.getId(),
+                    INSUFFICIENT_KNOWLEDGE_ANSWER,
+                    false,
+                    true,
+                    List.of(),
+                    traceSteps
+            );
+        }
+
         List<PromptKnowledgeItem> promptKnowledgeItems = buildPromptKnowledgeItems(userId, knowledgeList);
         String prompt = promptBuilder.buildKnowledgeAnswerPrompt(question, promptKnowledgeItems);
 
-        LlmResponse llmResponse = llmClient.chat(new LlmRequest(MOCK_MODEL_NAME, prompt));
+        LlmResponse llmResponse;
+        try {
+            llmResponse = llmClient.chat(new LlmRequest(MOCK_MODEL_NAME, prompt));
+        } catch (RuntimeException exception) {
+            traceSteps.add(new AgentTraceStepVO(
+                    "LLM_CALL",
+                    "调用大模型生成回答",
+                    false,
+                    "调用失败"
+            ));
+            throw new BusinessException(ErrorCode.LLM_CALL_FAILED);
+        }
+
         traceSteps.add(new AgentTraceStepVO(
                 "LLM_CALL",
                 "调用大模型生成回答",
@@ -98,7 +144,8 @@ public class AgentServiceImpl implements AgentService {
                 request.getSessionId(),
                 userId,
                 ASSISTANT_ROLE,
-                llmResponse.getAnswer()
+                llmResponse.getAnswer(),
+                CANNOT_CREATE_TICKET
         );
         traceSteps.add(new AgentTraceStepVO(
                 "MESSAGE_SAVE",
@@ -136,14 +183,14 @@ public class AgentServiceImpl implements AgentService {
         return session;
     }
 
-    private ChatMessage saveMessage(Long sessionId, Long userId, String role, String content) {
+    private ChatMessage saveMessage(Long sessionId, Long userId, String role, String content,Integer canCreateTicket) {
         ChatMessage message = new ChatMessage();
         message.setSessionId(sessionId);
         message.setUserId(userId);
         message.setRole(role);
         message.setContent(content);
         message.setFromCache(NOT_FROM_CACHE);
-        message.setCanCreateTicket(CANNOT_CREATE_TICKET);
+        message.setCanCreateTicket(canCreateTicket);
         message.setIsDeleted(NOT_DELETED);
 
         chatMessageMapper.insert(message);

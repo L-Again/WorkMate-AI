@@ -12,7 +12,9 @@ public enum ErrorCode {
     DATABASE_ERROR(50002, "数据库失败"),
     REDIS_ERROR(50003, "Redis 失败"),
     LLM_ERROR(50004, "大模型调用失败"),
-    ASYNC_LOG_ERROR(50005, "异步日志失败");
+    ASYNC_LOG_ERROR(50005, "异步日志失败"),
+    LLM_CALL_FAILED(50004, "大模型服务暂时不可用，请稍后重试");
+
 
     private final Integer code;
     private final String message;

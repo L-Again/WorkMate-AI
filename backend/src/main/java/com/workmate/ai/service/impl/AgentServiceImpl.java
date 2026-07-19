@@ -7,14 +7,18 @@ import com.workmate.ai.common.ErrorCode;
 import com.workmate.ai.dto.AgentChatDTO;
 import com.workmate.ai.entity.ChatMessage;
 import com.workmate.ai.entity.ChatSession;
+import com.workmate.ai.entity.KnowledgeReference;
 import com.workmate.ai.entity.SysUser;
 import com.workmate.ai.exception.BusinessException;
 import com.workmate.ai.mapper.ChatMessageMapper;
 import com.workmate.ai.mapper.ChatSessionMapper;
+import com.workmate.ai.mapper.KnowledgeReferenceMapper;
 import com.workmate.ai.mapper.SysUserMapper;
+import com.workmate.ai.service.AgentAnswerCacheService;
 import com.workmate.ai.service.AgentService;
 import com.workmate.ai.service.KnowledgeService;
 import com.workmate.ai.service.PromptBuilder;
+import com.workmate.ai.vo.AgentAnswerCacheValue;
 import com.workmate.ai.vo.AgentAnswerVO;
 import com.workmate.ai.vo.AgentTraceStepVO;
 import com.workmate.ai.vo.KnowledgeDetailVO;
@@ -22,11 +26,11 @@ import com.workmate.ai.vo.KnowledgeListItemVO;
 import com.workmate.ai.vo.KnowledgeReferenceVO;
 import com.workmate.ai.vo.PromptKnowledgeItem;
 import org.springframework.stereotype.Service;
-import com.workmate.ai.entity.KnowledgeReference;
-import com.workmate.ai.mapper.KnowledgeReferenceMapper;
+
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 @Service
 public class AgentServiceImpl implements AgentService {
@@ -34,19 +38,22 @@ public class AgentServiceImpl implements AgentService {
     private static final int ENABLED_STATUS = 1;
     private static final int NOT_DELETED = 0;
     private static final int NOT_FROM_CACHE = 0;
+    private static final int FROM_CACHE = 1;
     private static final int CANNOT_CREATE_TICKET = 0;
+    private static final int CAN_CREATE_TICKET = 1;
     private static final String USER_ROLE = "USER";
     private static final String ASSISTANT_ROLE = "ASSISTANT";
     private static final String MOCK_MODEL_NAME = "mock-llm";
-    private static final int CAN_CREATE_TICKET = 1;
     private static final String INSUFFICIENT_KNOWLEDGE_ANSWER = "当前知识库中没有找到可靠内容。你可以创建人工咨询工单。";
+
     private final SysUserMapper sysUserMapper;
     private final ChatSessionMapper chatSessionMapper;
     private final ChatMessageMapper chatMessageMapper;
+    private final KnowledgeReferenceMapper knowledgeReferenceMapper;
     private final KnowledgeService knowledgeService;
     private final PromptBuilder promptBuilder;
     private final LlmClient llmClient;
-    private final KnowledgeReferenceMapper knowledgeReferenceMapper;
+    private final AgentAnswerCacheService agentAnswerCacheService;
 
     public AgentServiceImpl(SysUserMapper sysUserMapper,
                             ChatSessionMapper chatSessionMapper,
@@ -54,7 +61,8 @@ public class AgentServiceImpl implements AgentService {
                             KnowledgeReferenceMapper knowledgeReferenceMapper,
                             KnowledgeService knowledgeService,
                             PromptBuilder promptBuilder,
-                            LlmClient llmClient) {
+                            LlmClient llmClient,
+                            AgentAnswerCacheService agentAnswerCacheService) {
         this.sysUserMapper = sysUserMapper;
         this.chatSessionMapper = chatSessionMapper;
         this.chatMessageMapper = chatMessageMapper;
@@ -62,6 +70,7 @@ public class AgentServiceImpl implements AgentService {
         this.knowledgeService = knowledgeService;
         this.promptBuilder = promptBuilder;
         this.llmClient = llmClient;
+        this.agentAnswerCacheService = agentAnswerCacheService;
     }
 
     @Override
@@ -77,6 +86,7 @@ public class AgentServiceImpl implements AgentService {
                 userId,
                 USER_ROLE,
                 question,
+                NOT_FROM_CACHE,
                 CANNOT_CREATE_TICKET
         );
         traceSteps.add(new AgentTraceStepVO(
@@ -84,6 +94,51 @@ public class AgentServiceImpl implements AgentService {
                 "保存用户消息",
                 true,
                 "用户消息已保存"
+        ));
+
+        Optional<AgentAnswerCacheValue> cachedAnswer = agentAnswerCacheService.get(question);
+        if (cachedAnswer.isPresent()) {
+            traceSteps.add(new AgentTraceStepVO(
+                    "CACHE_LOOKUP",
+                    "检查 Redis 问答缓存",
+                    true,
+                    "缓存命中"
+            ));
+
+            AgentAnswerCacheValue cacheValue = cachedAnswer.get();
+            ChatMessage answerMessage = saveMessage(
+                    request.getSessionId(),
+                    userId,
+                    ASSISTANT_ROLE,
+                    cacheValue.getAnswer(),
+                    FROM_CACHE,
+                    CANNOT_CREATE_TICKET
+            );
+            saveKnowledgeReferencesFromCache(answerMessage.getId(), cacheValue.getReferences());
+            traceSteps.add(new AgentTraceStepVO(
+                    "MESSAGE_SAVE",
+                    "保存缓存助手回答",
+                    true,
+                    "缓存助手消息已保存"
+            ));
+
+            return new AgentAnswerVO(
+                    request.getSessionId(),
+                    questionMessage.getId(),
+                    answerMessage.getId(),
+                    cacheValue.getAnswer(),
+                    true,
+                    false,
+                    cacheValue.getReferences(),
+                    traceSteps
+            );
+        }
+
+        traceSteps.add(new AgentTraceStepVO(
+                "CACHE_LOOKUP",
+                "检查 Redis 问答缓存",
+                true,
+                "缓存未命中"
         ));
 
         List<KnowledgeListItemVO> knowledgeList = knowledgeService.searchKnowledge(userId, question, 5);
@@ -100,6 +155,7 @@ public class AgentServiceImpl implements AgentService {
                     userId,
                     ASSISTANT_ROLE,
                     INSUFFICIENT_KNOWLEDGE_ANSWER,
+                    NOT_FROM_CACHE,
                     CAN_CREATE_TICKET
             );
             traceSteps.add(new AgentTraceStepVO(
@@ -149,9 +205,13 @@ public class AgentServiceImpl implements AgentService {
                 userId,
                 ASSISTANT_ROLE,
                 llmResponse.getAnswer(),
+                NOT_FROM_CACHE,
                 CANNOT_CREATE_TICKET
         );
+        List<KnowledgeReferenceVO> references = buildReferences(knowledgeList);
         saveKnowledgeReferences(answerMessage.getId(), knowledgeList);
+        agentAnswerCacheService.save(question, new AgentAnswerCacheValue(llmResponse.getAnswer(), references));
+
         traceSteps.add(new AgentTraceStepVO(
                 "MESSAGE_SAVE",
                 "保存助手回答",
@@ -166,7 +226,7 @@ public class AgentServiceImpl implements AgentService {
                 llmResponse.getAnswer(),
                 false,
                 false,
-                buildReferences(knowledgeList),
+                references,
                 traceSteps
         );
     }
@@ -188,13 +248,18 @@ public class AgentServiceImpl implements AgentService {
         return session;
     }
 
-    private ChatMessage saveMessage(Long sessionId, Long userId, String role, String content,Integer canCreateTicket) {
+    private ChatMessage saveMessage(Long sessionId,
+                                    Long userId,
+                                    String role,
+                                    String content,
+                                    Integer fromCache,
+                                    Integer canCreateTicket) {
         ChatMessage message = new ChatMessage();
         message.setSessionId(sessionId);
         message.setUserId(userId);
         message.setRole(role);
         message.setContent(content);
-        message.setFromCache(NOT_FROM_CACHE);
+        message.setFromCache(fromCache);
         message.setCanCreateTicket(canCreateTicket);
         message.setIsDeleted(NOT_DELETED);
 
@@ -240,12 +305,22 @@ public class AgentServiceImpl implements AgentService {
 
     private void saveKnowledgeReferences(Long answerMessageId, List<KnowledgeListItemVO> knowledgeList) {
         for (KnowledgeListItemVO knowledge : knowledgeList) {
-            KnowledgeReference reference = new KnowledgeReference();
-            reference.setMessageId(answerMessageId);
-            reference.setKnowledgeId(knowledge.getId());
-
-            knowledgeReferenceMapper.insert(reference);
+            saveKnowledgeReference(answerMessageId, knowledge.getId());
         }
+    }
+
+    private void saveKnowledgeReferencesFromCache(Long answerMessageId, List<KnowledgeReferenceVO> references) {
+        for (KnowledgeReferenceVO reference : references) {
+            saveKnowledgeReference(answerMessageId, reference.getKnowledgeId());
+        }
+    }
+
+    private void saveKnowledgeReference(Long answerMessageId, Long knowledgeId) {
+        KnowledgeReference reference = new KnowledgeReference();
+        reference.setMessageId(answerMessageId);
+        reference.setKnowledgeId(knowledgeId);
+
+        knowledgeReferenceMapper.insert(reference);
     }
 
     private String normalizeQuestion(String question) {

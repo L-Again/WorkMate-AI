@@ -23,7 +23,8 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import com.workmate.ai.common.ErrorCode;
 import com.workmate.ai.exception.BusinessException;
-
+import com.workmate.ai.entity.KnowledgeReference;
+import com.workmate.ai.mapper.KnowledgeReferenceMapper;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.never;
 import java.time.LocalDateTime;
@@ -59,12 +60,16 @@ class AgentServiceTest {
 
     private AgentService agentService;
 
+    @Mock
+    private KnowledgeReferenceMapper knowledgeReferenceMapper;
+
     @BeforeEach
     void setUp() {
         agentService = new AgentServiceImpl(
                 sysUserMapper,
                 chatSessionMapper,
                 chatMessageMapper,
+                knowledgeReferenceMapper,
                 knowledgeService,
                 promptBuilder,
                 llmClient
@@ -157,6 +162,13 @@ class AgentServiceTest {
         assertThat(llmRequestCaptor.getValue().getModelName()).isEqualTo("mock-llm");
         assertThat(llmRequestCaptor.getValue().getPrompt()).isEqualTo("测试 Prompt");
 
+        ArgumentCaptor<KnowledgeReference> referenceCaptor = ArgumentCaptor.forClass(KnowledgeReference.class);
+        verify(knowledgeReferenceMapper).insert(referenceCaptor.capture());
+
+        KnowledgeReference savedReference = referenceCaptor.getValue();
+        assertThat(savedReference.getMessageId()).isEqualTo(102L);
+        assertThat(savedReference.getKnowledgeId()).isEqualTo(3L);
+
         verify(chatSessionMapper, times(2)).updateById(any(ChatSession.class));
     }
 
@@ -204,6 +216,8 @@ class AgentServiceTest {
         assertThat(savedMessages.get(1).getRole()).isEqualTo("ASSISTANT");
         assertThat(savedMessages.get(1).getContent()).isEqualTo("当前知识库中没有找到可靠内容。你可以创建人工咨询工单。");
         assertThat(savedMessages.get(1).getCanCreateTicket()).isEqualTo(1);
+
+        verify(knowledgeReferenceMapper, never()).insert(any(KnowledgeReference.class));
     }
 
     @Test
@@ -255,6 +269,7 @@ class AgentServiceTest {
                         assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.LLM_CALL_FAILED));
 
         verify(chatMessageMapper, times(1)).insert(any(ChatMessage.class));
+        verify(knowledgeReferenceMapper, never()).insert(any(KnowledgeReference.class));
     }
 
     private SysUser user(Long id, Integer status) {

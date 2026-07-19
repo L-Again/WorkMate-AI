@@ -22,7 +22,8 @@ import com.workmate.ai.vo.KnowledgeListItemVO;
 import com.workmate.ai.vo.KnowledgeReferenceVO;
 import com.workmate.ai.vo.PromptKnowledgeItem;
 import org.springframework.stereotype.Service;
-
+import com.workmate.ai.entity.KnowledgeReference;
+import com.workmate.ai.mapper.KnowledgeReferenceMapper;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -45,16 +46,19 @@ public class AgentServiceImpl implements AgentService {
     private final KnowledgeService knowledgeService;
     private final PromptBuilder promptBuilder;
     private final LlmClient llmClient;
+    private final KnowledgeReferenceMapper knowledgeReferenceMapper;
 
     public AgentServiceImpl(SysUserMapper sysUserMapper,
                             ChatSessionMapper chatSessionMapper,
                             ChatMessageMapper chatMessageMapper,
+                            KnowledgeReferenceMapper knowledgeReferenceMapper,
                             KnowledgeService knowledgeService,
                             PromptBuilder promptBuilder,
                             LlmClient llmClient) {
         this.sysUserMapper = sysUserMapper;
         this.chatSessionMapper = chatSessionMapper;
         this.chatMessageMapper = chatMessageMapper;
+        this.knowledgeReferenceMapper = knowledgeReferenceMapper;
         this.knowledgeService = knowledgeService;
         this.promptBuilder = promptBuilder;
         this.llmClient = llmClient;
@@ -147,6 +151,7 @@ public class AgentServiceImpl implements AgentService {
                 llmResponse.getAnswer(),
                 CANNOT_CREATE_TICKET
         );
+        saveKnowledgeReferences(answerMessage.getId(), knowledgeList);
         traceSteps.add(new AgentTraceStepVO(
                 "MESSAGE_SAVE",
                 "保存助手回答",
@@ -231,6 +236,16 @@ public class AgentServiceImpl implements AgentService {
             ));
         }
         return references;
+    }
+
+    private void saveKnowledgeReferences(Long answerMessageId, List<KnowledgeListItemVO> knowledgeList) {
+        for (KnowledgeListItemVO knowledge : knowledgeList) {
+            KnowledgeReference reference = new KnowledgeReference();
+            reference.setMessageId(answerMessageId);
+            reference.setKnowledgeId(knowledge.getId());
+
+            knowledgeReferenceMapper.insert(reference);
+        }
     }
 
     private String normalizeQuestion(String question) {

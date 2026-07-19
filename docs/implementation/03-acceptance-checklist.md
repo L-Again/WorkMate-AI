@@ -115,37 +115,37 @@ Testing:
 
 ## Stage 4: 大模型问答
 
-Functional:
+功能：
 
-- [ ] User question validates user and session ownership.
-- [ ] User message is saved before knowledge/LLM processing.
-- [ ] Knowledge search returns up to 5 effective records.
-- [ ] Prompt is built from retrieved knowledge.
-- [ ] LLM is called only when knowledge exists.
-- [ ] Assistant answer and references are saved on success.
-- [ ] Trace steps are returned.
+- [x] 用户问题会校验用户存在、启用状态和会话归属。
+- [x] 用户消息会在知识检索和 LLM 处理前保存。
+- [x] 知识检索最多返回 5 条有效知识。
+- [x] Prompt 基于检索到的知识构造。
+- [x] 只有检索到知识时才调用 LLM。
+- [x] 成功回答后保存助手消息和引用关系。
+- [x] 接口返回 traceSteps 执行摘要。
 
-Data:
+数据：
 
-- [ ] `knowledge_reference` is saved only after assistant message is saved.
-- [ ] Model failure does not save fake assistant answer.
+- [x] `knowledge_reference` 只在助手消息保存成功后写入。
+- [x] 模型失败时不保存假的助手回答。
 
-API:
+接口：
 
-- [ ] `POST /api/agent/chat` matches normal/no-knowledge/failure response contracts.
-- [ ] `answerMessageId` is null on model failure.
+- [x] `POST /api/agent/chat` 符合正常、无知识、模型失败三类响应约定。
+- [x] 模型失败时不产生 `answerMessageId`。
 
-Security:
+安全：
 
-- [ ] Trace does not expose chain of thought.
-- [ ] Trace does not expose full system prompt.
-- [ ] Trace does not expose API keys, raw stack traces, or sensitive headers.
+- [x] traceSteps 不暴露模型思维链。
+- [x] traceSteps 不暴露完整系统 Prompt。
+- [x] traceSteps 不暴露 API Key、原始异常堆栈或敏感请求头。
 
-Testing:
+测试：
 
-- [ ] Mock LLM success test passes.
-- [ ] No-knowledge test proves LLM is not called.
-- [ ] LLM failure test proves no fake answer is saved.
+- [x] Mock LLM 成功路径测试通过。
+- [x] 无知识测试证明不会调用 LLM。
+- [x] LLM 失败测试证明不会保存假的助手回答。
 
 ## Stage 5: Redis
 

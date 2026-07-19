@@ -191,4 +191,16 @@ public class KnowledgeServiceImpl implements KnowledgeService {
         return true;
     }
 
+    @Override
+    public List<KnowledgeListItemVO> searchKnowledge(Long userId, String keyword, Integer limit) {
+        SysUser user = sysUserMapper.selectById(userId);
+        if (user == null || !Integer.valueOf(ENABLED_STATUS).equals(user.getStatus())) {
+            throw new BusinessException(ErrorCode.USER_NOT_FOUND_OR_DISABLED);
+        }
+
+        int safeLimit = limit == null || limit < 1 ? 5 : Math.min(limit, 10);
+
+        return knowledgeMapper.searchEffectiveKnowledge(keyword, safeLimit);
+    }
+
 }

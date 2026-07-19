@@ -220,4 +220,28 @@ class KnowledgeControllerTest {
                 .andExpect(jsonPath("$.code", is(200)))
                 .andExpect(jsonPath("$.data", is(true)));
     }
+
+    @Test
+    void shouldSearchKnowledge() throws Exception {
+        when(knowledgeService.searchKnowledge(1L, "Git", 5))
+                .thenReturn(List.of(new KnowledgeListItemVO(
+                        1L,
+                        3L,
+                        "研发规范",
+                        "Git 分支命名规范",
+                        "Git,分支,branch,feature,bugfix",
+                        1,
+                        LocalDateTime.of(2026, 7, 19, 11, 20)
+                )));
+
+        mockMvc.perform(get("/api/knowledge/search")
+                        .header("X-User-Id", "1")
+                        .param("keyword", "Git")
+                        .param("limit", "5"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code", is(200)))
+                .andExpect(jsonPath("$.data", hasSize(1)))
+                .andExpect(jsonPath("$.data[0].id", is(1)))
+                .andExpect(jsonPath("$.data[0].title", is("Git 分支命名规范")));
+    }
 }

@@ -71,4 +71,29 @@
         LIMIT 1
     </select>
 
+    <select id="searchEffectiveKnowledge" resultType="com.workmate.ai.vo.KnowledgeListItemVO">
+        SELECT
+        k.id,
+        k.category_id AS categoryId,
+        c.name AS categoryName,
+        k.title,
+        k.keywords,
+        k.status,
+        k.updated_at AS updatedAt
+        FROM knowledge k
+        INNER JOIN knowledge_category c ON k.category_id = c.id
+        WHERE k.is_deleted = 0
+        AND k.status = 1
+        AND c.is_deleted = 0
+        AND c.status = 1
+        <if test="keyword != null and keyword != ''">
+            AND (
+            k.title LIKE CONCAT('%', #{keyword}, '%')
+            OR k.keywords LIKE CONCAT('%', #{keyword}, '%')
+            OR k.content LIKE CONCAT('%', #{keyword}, '%')
+            )
+        </if>
+        ORDER BY k.updated_at DESC, k.id DESC
+        LIMIT #{limit}
+    </select>
 </mapper>

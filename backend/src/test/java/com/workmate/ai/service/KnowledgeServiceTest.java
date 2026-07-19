@@ -500,4 +500,48 @@ class KnowledgeServiceTest {
         verify(knowledgeMapper, never()).updateById(any(Knowledge.class));
     }
 
+    @Test
+    void shouldSearchKnowledgeWithSafeLimit() {
+        when(sysUserMapper.selectById(1L)).thenReturn(user(1L, "EMPLOYEE", 1));
+        when(knowledgeMapper.searchEffectiveKnowledge("Git", 10))
+                .thenReturn(List.of(new KnowledgeListItemVO(
+                        1L,
+                        3L,
+                        "研发规范",
+                        "Git 分支命名规范",
+                        "Git,分支,branch,feature,bugfix",
+                        1,
+                        LocalDateTime.of(2026, 7, 19, 11, 20)
+                )));
+
+        List<KnowledgeListItemVO> result = knowledgeService.searchKnowledge(1L, "Git", 99);
+
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).getTitle()).isEqualTo("Git 分支命名规范");
+
+        verify(knowledgeMapper).searchEffectiveKnowledge("Git", 10);
+    }
+
+    @Test
+    void shouldUseDefaultLimitWhenSearchLimitIsInvalid() {
+        when(sysUserMapper.selectById(1L)).thenReturn(user(1L, "EMPLOYEE", 1));
+        when(knowledgeMapper.searchEffectiveKnowledge("Git", 5)).thenReturn(List.of());
+
+        List<KnowledgeListItemVO> result = knowledgeService.searchKnowledge(1L, "Git", 0);
+
+        assertThat(result).isEmpty();
+        verify(knowledgeMapper).searchEffectiveKnowledge("Git", 5);
+    }
+
+    @Test
+    void shouldReturnUserNotFoundWhenSearchingKnowledgeWithMissingUser() {
+        when(sysUserMapper.selectById(999L)).thenReturn(null);
+
+        assertThatThrownBy(() -> knowledgeService.searchKnowledge(999L, "Git", 5))
+                .isInstanceOfSatisfying(BusinessException.class, exception ->
+                        assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.USER_NOT_FOUND_OR_DISABLED));
+
+        verify(knowledgeMapper, never()).searchEffectiveKnowledge(any(), any());
+    }
+
 }

@@ -23,4 +23,7 @@ public interface KnowledgeMapper extends BaseMapper<Knowledge> {
                             @Param("status") Integer status);
 
     KnowledgeDetailVO selectKnowledgeDetail(@Param("id") Long id);
+
+    List<KnowledgeListItemVO> searchEffectiveKnowledge(@Param("keyword") String keyword,
+                                                       @Param("limit") Integer limit);
 }

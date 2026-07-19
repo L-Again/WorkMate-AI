@@ -12,6 +12,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import com.workmate.ai.dto.KnowledgeCreateDTO;
 import jakarta.validation.Valid;
+import java.util.List;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import com.workmate.ai.dto.KnowledgeUpdateDTO;
@@ -75,5 +76,13 @@ public class KnowledgeController {
             @RequestHeader("X-User-Id") Long userId,
             @PathVariable("id") Long knowledgeId) {
         return CommonResult.success(knowledgeService.deleteKnowledge(userId, knowledgeId));
+    }
+
+    @GetMapping("/api/knowledge/search")
+    public CommonResult<List<KnowledgeListItemVO>> searchKnowledge(
+            @RequestHeader("X-User-Id") Long userId,
+            @RequestParam(required = false) String keyword,
+            @RequestParam(defaultValue = "5") Integer limit) {
+        return CommonResult.success(knowledgeService.searchKnowledge(userId, keyword, limit));
     }
 }

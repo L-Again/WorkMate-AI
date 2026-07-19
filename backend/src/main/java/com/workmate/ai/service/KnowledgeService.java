@@ -1,5 +1,6 @@
 package com.workmate.ai.service;
 
+import java.util.List;
 import com.workmate.ai.common.PageResult;
 import com.workmate.ai.vo.KnowledgeListItemVO;
 import com.workmate.ai.vo.KnowledgeDetailVO;
@@ -23,4 +24,5 @@ public interface KnowledgeService {
 
     Boolean deleteKnowledge(Long userId, Long knowledgeId);
 
+    List<KnowledgeListItemVO> searchKnowledge(Long userId, String keyword, Integer limit);
 }

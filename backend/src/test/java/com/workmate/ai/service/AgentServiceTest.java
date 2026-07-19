@@ -40,6 +40,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.doThrow;
 
 @ExtendWith(MockitoExtension.class)
 class AgentServiceTest {
@@ -364,6 +365,141 @@ class AgentServiceTest {
         verify(chatMessageMapper, times(1)).insert(any(ChatMessage.class));
         verify(knowledgeReferenceMapper, never()).insert(any(KnowledgeReference.class));
         verify(agentAnswerCacheService, never()).save(any(), any());
+    }
+
+    @Test
+    void shouldContinueKnowledgeAndLlmFlowWhenCacheLookupFails() {
+        AgentChatDTO request = new AgentChatDTO();
+        request.setSessionId(10L);
+        request.setQuestion("Git");
+
+        when(sysUserMapper.selectById(1L)).thenReturn(user(1L, 1));
+        when(chatSessionMapper.selectById(10L)).thenReturn(session(10L, 1L, 0));
+
+        when(chatMessageMapper.insert(any(ChatMessage.class))).thenAnswer(invocation -> {
+            ChatMessage message = invocation.getArgument(0);
+            if ("USER".equals(message.getRole())) {
+                message.setId(501L);
+            } else {
+                message.setId(502L);
+            }
+            return 1;
+        });
+
+        when(agentAnswerCacheService.get("Git"))
+                .thenThrow(new RuntimeException("Redis unavailable"));
+
+        when(knowledgeService.searchKnowledge(1L, "Git", 5))
+                .thenReturn(List.of(new KnowledgeListItemVO(
+                        3L,
+                        3L,
+                        "研发规范",
+                        "Git 分支命名规范",
+                        "Git,分支,branch",
+                        1,
+                        LocalDateTime.of(2026, 7, 19, 16, 10)
+                )));
+
+        when(knowledgeService.getKnowledgeDetail(1L, 3L))
+                .thenReturn(new KnowledgeDetailVO(
+                        3L,
+                        3L,
+                        "研发规范",
+                        "Git 分支命名规范",
+                        "Git,分支,branch",
+                        "功能分支统一使用 feature/功能名称。",
+                        1,
+                        LocalDateTime.of(2026, 7, 19, 16, 10)
+                ));
+
+        when(promptBuilder.buildKnowledgeAnswerPrompt(eq("Git"), any()))
+                .thenReturn("测试 Prompt");
+
+        when(llmClient.chat(any(LlmRequest.class)))
+                .thenReturn(new LlmResponse(
+                        "Redis 故障时仍然返回模型回答。",
+                        "mock-llm",
+                        null,
+                        null
+                ));
+
+        AgentAnswerVO result = agentService.chat(1L, request);
+
+        assertThat(result.getQuestionMessageId()).isEqualTo(501L);
+        assertThat(result.getAnswerMessageId()).isEqualTo(502L);
+        assertThat(result.getAnswer()).isEqualTo("Redis 故障时仍然返回模型回答。");
+        assertThat(result.getFromCache()).isFalse();
+
+        verify(knowledgeService).searchKnowledge(1L, "Git", 5);
+        verify(llmClient).chat(any(LlmRequest.class));
+    }
+
+    @Test
+    void shouldReturnAnswerWhenCacheWriteFails() {
+        AgentChatDTO request = new AgentChatDTO();
+        request.setSessionId(10L);
+        request.setQuestion("Git");
+
+        when(sysUserMapper.selectById(1L)).thenReturn(user(1L, 1));
+        when(chatSessionMapper.selectById(10L)).thenReturn(session(10L, 1L, 0));
+
+        when(chatMessageMapper.insert(any(ChatMessage.class))).thenAnswer(invocation -> {
+            ChatMessage message = invocation.getArgument(0);
+            if ("USER".equals(message.getRole())) {
+                message.setId(601L);
+            } else {
+                message.setId(602L);
+            }
+            return 1;
+        });
+
+        when(agentAnswerCacheService.get("Git")).thenReturn(Optional.empty());
+
+        when(knowledgeService.searchKnowledge(1L, "Git", 5))
+                .thenReturn(List.of(new KnowledgeListItemVO(
+                        3L,
+                        3L,
+                        "研发规范",
+                        "Git 分支命名规范",
+                        "Git,分支,branch",
+                        1,
+                        LocalDateTime.of(2026, 7, 19, 16, 20)
+                )));
+
+        when(knowledgeService.getKnowledgeDetail(1L, 3L))
+                .thenReturn(new KnowledgeDetailVO(
+                        3L,
+                        3L,
+                        "研发规范",
+                        "Git 分支命名规范",
+                        "Git,分支,branch",
+                        "功能分支统一使用 feature/功能名称。",
+                        1,
+                        LocalDateTime.of(2026, 7, 19, 16, 20)
+                ));
+
+        when(promptBuilder.buildKnowledgeAnswerPrompt(eq("Git"), any()))
+                .thenReturn("测试 Prompt");
+
+        when(llmClient.chat(any(LlmRequest.class)))
+                .thenReturn(new LlmResponse(
+                        "缓存写入失败时仍然返回回答。",
+                        "mock-llm",
+                        null,
+                        null
+                ));
+
+        doThrow(new RuntimeException("Redis unavailable"))
+                .when(agentAnswerCacheService).save(any(), any());
+
+        AgentAnswerVO result = agentService.chat(1L, request);
+
+        assertThat(result.getQuestionMessageId()).isEqualTo(601L);
+        assertThat(result.getAnswerMessageId()).isEqualTo(602L);
+        assertThat(result.getAnswer()).isEqualTo("缓存写入失败时仍然返回回答。");
+        assertThat(result.getFromCache()).isFalse();
+
+        verify(knowledgeReferenceMapper).insert(any(KnowledgeReference.class));
     }
 
     private SysUser user(Long id, Integer status) {

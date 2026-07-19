@@ -96,7 +96,7 @@ public class AgentServiceImpl implements AgentService {
                 "用户消息已保存"
         ));
 
-        Optional<AgentAnswerCacheValue> cachedAnswer = agentAnswerCacheService.get(question);
+        Optional<AgentAnswerCacheValue> cachedAnswer = getCachedAnswer(question);
         if (cachedAnswer.isPresent()) {
             traceSteps.add(new AgentTraceStepVO(
                     "CACHE_LOOKUP",
@@ -210,7 +210,7 @@ public class AgentServiceImpl implements AgentService {
         );
         List<KnowledgeReferenceVO> references = buildReferences(knowledgeList);
         saveKnowledgeReferences(answerMessage.getId(), knowledgeList);
-        agentAnswerCacheService.save(question, new AgentAnswerCacheValue(llmResponse.getAnswer(), references));
+        saveAnswerCache(question, new AgentAnswerCacheValue(llmResponse.getAnswer(), references));
 
         traceSteps.add(new AgentTraceStepVO(
                 "MESSAGE_SAVE",
@@ -301,6 +301,22 @@ public class AgentServiceImpl implements AgentService {
             ));
         }
         return references;
+    }
+
+    private Optional<AgentAnswerCacheValue> getCachedAnswer(String question) {
+        try {
+            return agentAnswerCacheService.get(question);
+        } catch (RuntimeException exception) {
+            return Optional.empty();
+        }
+    }
+
+    private void saveAnswerCache(String question, AgentAnswerCacheValue cacheValue) {
+        try {
+            agentAnswerCacheService.save(question, cacheValue);
+        } catch (RuntimeException exception) {
+            // Redis cache failure must not block the Agent answer.
+        }
     }
 
     private void saveKnowledgeReferences(Long answerMessageId, List<KnowledgeListItemVO> knowledgeList) {

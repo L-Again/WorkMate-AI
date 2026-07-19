@@ -12,7 +12,11 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.ValueOperations;
+import java.util.Set;
 
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.doThrow;
 import java.time.Duration;
 import java.util.List;
 import java.util.Optional;
@@ -133,4 +137,32 @@ class AgentAnswerCacheServiceTest {
 
         assertThat(result).isEmpty();
     }
+
+    @Test
+    void shouldEvictAllAgentAnswerCacheKeys() {
+        when(redisTemplate.keys("agent:answer:*"))
+                .thenReturn(Set.of("agent:answer:first", "agent:answer:second"));
+
+        cacheService.evictAllAnswers();
+
+        verify(redisTemplate).delete(Set.of("agent:answer:first", "agent:answer:second"));
+    }
+
+    @Test
+    void shouldSkipEvictWhenNoCacheKeyExists() {
+        when(redisTemplate.keys("agent:answer:*")).thenReturn(Set.of());
+
+        cacheService.evictAllAnswers();
+
+        verify(redisTemplate, never()).delete(anyString());
+    }
+
+    @Test
+    void shouldNotThrowWhenRedisFails() {
+        doThrow(new RuntimeException("Redis unavailable"))
+                .when(redisTemplate).keys("agent:answer:*");
+
+        cacheService.evictAllAnswers();
+    }
+
 }

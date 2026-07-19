@@ -15,4 +15,6 @@ public interface AgentAnswerCacheService {
     Optional<AgentAnswerCacheValue> get(String question);
 
     void save(String question, AgentAnswerCacheValue cacheValue);
+
+    void evictAllAnswers();
 }

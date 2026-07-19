@@ -15,6 +15,7 @@ import com.workmate.ai.dto.CategoryUpdateDTO;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import java.util.List;
 import com.workmate.ai.dto.CategoryStatusDTO;
+import com.workmate.ai.service.AgentAnswerCacheService;
 
 @Service
 public class CategoryServiceImpl implements CategoryService {
@@ -25,10 +26,14 @@ public class CategoryServiceImpl implements CategoryService {
 
     private final SysUserMapper sysUserMapper;
     private final KnowledgeCategoryMapper categoryMapper;
+    private final AgentAnswerCacheService agentAnswerCacheService;
 
-    public CategoryServiceImpl(SysUserMapper sysUserMapper, KnowledgeCategoryMapper categoryMapper) {
+    public CategoryServiceImpl(SysUserMapper sysUserMapper,
+                               KnowledgeCategoryMapper categoryMapper,
+                               AgentAnswerCacheService agentAnswerCacheService) {
         this.sysUserMapper = sysUserMapper;
         this.categoryMapper = categoryMapper;
+        this.agentAnswerCacheService = agentAnswerCacheService;
     }
 
     @Override
@@ -112,6 +117,7 @@ public class CategoryServiceImpl implements CategoryService {
         category.setIsDeleted(NOT_DELETED);
 
         categoryMapper.insert(category);
+        agentAnswerCacheService.evictAllAnswers();
 
         return toVO(category);
     }
@@ -150,6 +156,7 @@ public class CategoryServiceImpl implements CategoryService {
         updateWrapper.eq(KnowledgeCategory::getIsDeleted, NOT_DELETED);
 
         categoryMapper.update(updatedCategory, updateWrapper);
+        agentAnswerCacheService.evictAllAnswers();
 
         existingCategory.setName(request.getName());
         existingCategory.setDescription(request.getDescription());
@@ -182,6 +189,7 @@ public class CategoryServiceImpl implements CategoryService {
         updateWrapper.eq(KnowledgeCategory::getIsDeleted, NOT_DELETED);
 
         categoryMapper.update(updatedCategory, updateWrapper);
+        agentAnswerCacheService.evictAllAnswers();
 
         existingCategory.setStatus(request.getStatus());
         return toVO(existingCategory);
@@ -211,6 +219,7 @@ public class CategoryServiceImpl implements CategoryService {
         updateWrapper.eq(KnowledgeCategory::getIsDeleted, NOT_DELETED);
 
         categoryMapper.update(deletedCategory, updateWrapper);
+        agentAnswerCacheService.evictAllAnswers();
 
         return true;
     }

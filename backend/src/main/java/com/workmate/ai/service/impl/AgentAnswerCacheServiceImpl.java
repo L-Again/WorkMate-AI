@@ -4,6 +4,8 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.workmate.ai.service.AgentAnswerCacheService;
 import com.workmate.ai.vo.AgentAnswerCacheValue;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 
@@ -13,10 +15,12 @@ import java.security.NoSuchAlgorithmException;
 import java.time.Duration;
 import java.util.Locale;
 import java.util.Optional;
+import java.util.Set;
 
 @Service
 public class AgentAnswerCacheServiceImpl implements AgentAnswerCacheService {
 
+    private static final Logger log = LoggerFactory.getLogger(AgentAnswerCacheServiceImpl.class);
     private static final String CACHE_KEY_PREFIX = "agent:answer:";
     private static final Duration CACHE_TTL = Duration.ofMinutes(30);
 
@@ -57,15 +61,15 @@ public class AgentAnswerCacheServiceImpl implements AgentAnswerCacheService {
 
     @Override
     public Optional<AgentAnswerCacheValue> get(String question) {
-        String cachedJson = redisTemplate.opsForValue().get(buildCacheKey(question));
-        if (cachedJson == null || cachedJson.trim().isEmpty()) {
-            return Optional.empty();
-        }
-
         try {
+            String cachedJson = redisTemplate.opsForValue().get(buildCacheKey(question));
+            if (cachedJson == null || cachedJson.trim().isEmpty()) {
+                return Optional.empty();
+            }
             return Optional.of(objectMapper.readValue(cachedJson, AgentAnswerCacheValue.class));
-        } catch (JsonProcessingException exception) {
-            throw new IllegalStateException("Failed to deserialize agent answer cache value", exception);
+        } catch (JsonProcessingException | RuntimeException exception) {
+            log.warn("Failed to read agent answer cache, skip cache lookup.", exception);
+            return Optional.empty();
         }
     }
 
@@ -78,8 +82,21 @@ public class AgentAnswerCacheServiceImpl implements AgentAnswerCacheService {
         try {
             String cachedJson = objectMapper.writeValueAsString(cacheValue);
             redisTemplate.opsForValue().set(buildCacheKey(question), cachedJson, CACHE_TTL);
-        } catch (JsonProcessingException exception) {
-            throw new IllegalStateException("Failed to serialize agent answer cache value", exception);
+        } catch (JsonProcessingException | RuntimeException exception) {
+            log.warn("Failed to write agent answer cache, skip cache write.", exception);
+        }
+    }
+
+    @Override
+    public void evictAllAnswers() {
+        try {
+            Set<String> keys = redisTemplate.keys(CACHE_KEY_PREFIX + "*");
+            if (keys == null || keys.isEmpty()) {
+                return;
+            }
+            redisTemplate.delete(keys);
+        } catch (RuntimeException exception) {
+            log.warn("Failed to evict agent answer cache, skip cache eviction.", exception);
         }
     }
 

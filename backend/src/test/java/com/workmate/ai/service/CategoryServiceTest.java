@@ -38,9 +38,12 @@ class CategoryServiceTest {
 
     private CategoryService categoryService;
 
+    @Mock
+    private AgentAnswerCacheService agentAnswerCacheService;
+
     @BeforeEach
     void setUp() {
-        categoryService = new CategoryServiceImpl(sysUserMapper, categoryMapper);
+        categoryService = new CategoryServiceImpl(sysUserMapper, categoryMapper, agentAnswerCacheService);
     }
 
     @Test
@@ -142,6 +145,7 @@ class CategoryServiceTest {
         assertThat(captor.getValue().getName()).isEqualTo("财务制度");
         assertThat(captor.getValue().getStatus()).isEqualTo(1);
         assertThat(captor.getValue().getIsDeleted()).isEqualTo(0);
+        verify(agentAnswerCacheService).evictAllAnswers();
     }
 
     @Test
@@ -184,6 +188,7 @@ class CategoryServiceTest {
         assertThat(result.getSortOrder()).isEqualTo(3);
 
         verify(categoryMapper).update(any(KnowledgeCategory.class), any(LambdaUpdateWrapper.class));
+        verify(agentAnswerCacheService).evictAllAnswers();
     }
 
     @Test
@@ -236,6 +241,7 @@ class CategoryServiceTest {
         assertThat(result.getId()).isEqualTo(3L);
         assertThat(result.getStatus()).isEqualTo(0);
         verify(categoryMapper).update(any(KnowledgeCategory.class), any(LambdaUpdateWrapper.class));
+        verify(agentAnswerCacheService).evictAllAnswers();
     }
 
     @Test
@@ -272,6 +278,7 @@ class CategoryServiceTest {
 
         assertThat(result).isTrue();
         verify(categoryMapper).update(any(KnowledgeCategory.class), any(LambdaUpdateWrapper.class));
+        verify(agentAnswerCacheService).evictAllAnswers();
     }
 
     @Test

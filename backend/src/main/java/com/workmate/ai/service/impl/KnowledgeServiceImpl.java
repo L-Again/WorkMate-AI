@@ -16,6 +16,7 @@ import com.workmate.ai.entity.KnowledgeCategory;
 import com.workmate.ai.mapper.KnowledgeCategoryMapper;
 import com.workmate.ai.dto.KnowledgeUpdateDTO;
 import com.workmate.ai.dto.KnowledgeStatusDTO;
+import com.workmate.ai.service.AgentAnswerCacheService;
 
 
 import java.util.List;
@@ -30,13 +31,16 @@ public class KnowledgeServiceImpl implements KnowledgeService {
     private final SysUserMapper sysUserMapper;
     private final KnowledgeMapper knowledgeMapper;
     private final KnowledgeCategoryMapper categoryMapper;
+    private final AgentAnswerCacheService agentAnswerCacheService;
 
     public KnowledgeServiceImpl(SysUserMapper sysUserMapper,
                                 KnowledgeMapper knowledgeMapper,
-                                KnowledgeCategoryMapper categoryMapper) {
+                                KnowledgeCategoryMapper categoryMapper,
+                                AgentAnswerCacheService agentAnswerCacheService) {
         this.sysUserMapper = sysUserMapper;
         this.knowledgeMapper = knowledgeMapper;
         this.categoryMapper = categoryMapper;
+        this.agentAnswerCacheService = agentAnswerCacheService;
     }
 
     @Override
@@ -100,6 +104,7 @@ public class KnowledgeServiceImpl implements KnowledgeService {
         knowledge.setUpdatedBy(userId);
 
         knowledgeMapper.insert(knowledge);
+        agentAnswerCacheService.evictAllAnswers();
 
         return knowledgeMapper.selectKnowledgeDetail(knowledge.getId());
     }
@@ -135,6 +140,7 @@ public class KnowledgeServiceImpl implements KnowledgeService {
         knowledge.setUpdatedBy(userId);
 
         knowledgeMapper.updateById(knowledge);
+        agentAnswerCacheService.evictAllAnswers();
 
         return knowledgeMapper.selectKnowledgeDetail(knowledgeId);
     }
@@ -161,6 +167,7 @@ public class KnowledgeServiceImpl implements KnowledgeService {
         knowledge.setUpdatedBy(userId);
 
         knowledgeMapper.updateById(knowledge);
+        agentAnswerCacheService.evictAllAnswers();
 
         return knowledgeMapper.selectKnowledgeDetail(knowledgeId);
     }
@@ -187,6 +194,7 @@ public class KnowledgeServiceImpl implements KnowledgeService {
         knowledge.setUpdatedBy(userId);
 
         knowledgeMapper.updateById(knowledge);
+        agentAnswerCacheService.evictAllAnswers();
 
         return true;
     }

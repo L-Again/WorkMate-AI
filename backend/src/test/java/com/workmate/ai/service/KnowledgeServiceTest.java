@@ -46,9 +46,12 @@ class KnowledgeServiceTest {
     @Mock
     private KnowledgeCategoryMapper categoryMapper;
 
+    @Mock
+    private AgentAnswerCacheService agentAnswerCacheService;
+
     @BeforeEach
     void setUp() {
-        knowledgeService = new KnowledgeServiceImpl(sysUserMapper, knowledgeMapper, categoryMapper);
+        knowledgeService = new KnowledgeServiceImpl(sysUserMapper, knowledgeMapper, categoryMapper, agentAnswerCacheService);
     }
 
     @Test
@@ -182,6 +185,7 @@ class KnowledgeServiceTest {
         assertThat(inserted.getIsDeleted()).isEqualTo(0);
         assertThat(inserted.getCreatedBy()).isEqualTo(2L);
         assertThat(inserted.getUpdatedBy()).isEqualTo(2L);
+        verify(agentAnswerCacheService).evictAllAnswers();
     }
 
     @Test
@@ -277,6 +281,7 @@ class KnowledgeServiceTest {
         assertThat(updated.getContent()).isEqualTo("功能分支统一使用 feature/功能名称，修复分支统一使用 bugfix/问题名称。");
         assertThat(updated.getStatus()).isEqualTo(1);
         assertThat(updated.getUpdatedBy()).isEqualTo(2L);
+        verify(agentAnswerCacheService).evictAllAnswers();
     }
 
     @Test
@@ -425,6 +430,7 @@ class KnowledgeServiceTest {
         assertThat(updated.getId()).isEqualTo(1L);
         assertThat(updated.getStatus()).isEqualTo(0);
         assertThat(updated.getUpdatedBy()).isEqualTo(2L);
+        verify(agentAnswerCacheService).evictAllAnswers();
     }
 
     @Test
@@ -475,6 +481,7 @@ class KnowledgeServiceTest {
         assertThat(deleted.getId()).isEqualTo(1L);
         assertThat(deleted.getIsDeleted()).isEqualTo(1);
         assertThat(deleted.getUpdatedBy()).isEqualTo(2L);
+        verify(agentAnswerCacheService).evictAllAnswers();
     }
 
     @Test

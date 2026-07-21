@@ -64,7 +64,7 @@ onMounted(loadBaseInfo)
         <p v-if="currentUser" class="user-line">
           {{ currentUser.displayName }} / {{ currentUser.role }}
         </p>
-        <RouterView />
+        <RouterView :key="currentUserId" />
       </el-main>
     </el-container>
   </el-container>

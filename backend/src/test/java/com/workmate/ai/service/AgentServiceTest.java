@@ -46,6 +46,12 @@ import static org.mockito.Mockito.doThrow;
 @ExtendWith(MockitoExtension.class)
 class AgentServiceTest {
 
+    private static final String TEST_MODEL_NAME = "deepseek-v4-flash";
+
+    private static String cacheQuestion(String question) {
+        return "model=" + TEST_MODEL_NAME + "\nquestion=" + question;
+    }
+
     @Mock
     private SysUserMapper sysUserMapper;
 
@@ -87,7 +93,8 @@ class AgentServiceTest {
                 promptBuilder,
                 llmClient,
                 agentAnswerCacheService,
-                modelCallLogService
+                modelCallLogService,
+                TEST_MODEL_NAME
         );
     }
 
@@ -110,7 +117,7 @@ class AgentServiceTest {
             return 1;
         });
 
-        when(agentAnswerCacheService.get("Git 分支应该怎么命名？"))
+        when(agentAnswerCacheService.get(cacheQuestion("Git 分支应该怎么命名？")))
                 .thenReturn(Optional.empty());
 
         when(knowledgeService.searchKnowledge(1L, "Git 分支应该怎么命名？", 5))
@@ -142,7 +149,7 @@ class AgentServiceTest {
         when(llmClient.chat(any(LlmRequest.class)))
                 .thenReturn(new LlmResponse(
                         "这是 Mock LLM 根据企业知识生成的测试回答。",
-                        "mock-llm",
+                        TEST_MODEL_NAME,
                         null,
                         null
                 ));
@@ -179,7 +186,7 @@ class AgentServiceTest {
 
         ArgumentCaptor<LlmRequest> llmRequestCaptor = ArgumentCaptor.forClass(LlmRequest.class);
         verify(llmClient).chat(llmRequestCaptor.capture());
-        assertThat(llmRequestCaptor.getValue().getModelName()).isEqualTo("mock-llm");
+        assertThat(llmRequestCaptor.getValue().getModelName()).isEqualTo(TEST_MODEL_NAME);
         assertThat(llmRequestCaptor.getValue().getPrompt()).isEqualTo("测试 Prompt");
 
         ArgumentCaptor<KnowledgeReference> referenceCaptor = ArgumentCaptor.forClass(KnowledgeReference.class);
@@ -190,7 +197,7 @@ class AgentServiceTest {
         assertThat(savedReference.getKnowledgeId()).isEqualTo(3L);
 
         ArgumentCaptor<AgentAnswerCacheValue> cacheValueCaptor = ArgumentCaptor.forClass(AgentAnswerCacheValue.class);
-        verify(agentAnswerCacheService).save(eq("Git 分支应该怎么命名？"), cacheValueCaptor.capture());
+        verify(agentAnswerCacheService).save(eq(cacheQuestion("Git 分支应该怎么命名？")), cacheValueCaptor.capture());
 
         AgentAnswerCacheValue savedCacheValue = cacheValueCaptor.getValue();
         assertThat(savedCacheValue.getAnswer()).isEqualTo("这是 Mock LLM 根据企业知识生成的测试回答。");
@@ -207,7 +214,7 @@ class AgentServiceTest {
         assertThat(logRequest.getSessionId()).isEqualTo(10L);
         assertThat(logRequest.getQuestionMessageId()).isEqualTo(101L);
         assertThat(logRequest.getAnswerMessageId()).isEqualTo(102L);
-        assertThat(logRequest.getModelName()).isEqualTo("mock-llm");
+        assertThat(logRequest.getModelName()).isEqualTo(TEST_MODEL_NAME);
         assertThat(logRequest.getFromCache()).isFalse();
         assertThat(logRequest.getCallStatus()).isEqualTo("SUCCESS");
         assertThat(logRequest.getDurationMs()).isGreaterThanOrEqualTo(0L);
@@ -232,7 +239,7 @@ class AgentServiceTest {
             return 1;
         });
 
-        when(agentAnswerCacheService.get("Git 分支应该怎么命名？"))
+        when(agentAnswerCacheService.get(cacheQuestion("Git 分支应该怎么命名？")))
                 .thenReturn(Optional.of(new AgentAnswerCacheValue(
                         "缓存中的 Git 分支回答",
                         List.of(new KnowledgeReferenceVO(
@@ -314,7 +321,7 @@ class AgentServiceTest {
             return 1;
         });
 
-        when(agentAnswerCacheService.get("未知问题")).thenReturn(Optional.empty());
+        when(agentAnswerCacheService.get(cacheQuestion("未知问题"))).thenReturn(Optional.empty());
         when(knowledgeService.searchKnowledge(1L, "未知问题", 5)).thenReturn(List.of());
 
         AgentAnswerVO result = agentService.chat(1L, request);
@@ -373,7 +380,7 @@ class AgentServiceTest {
             return 1;
         });
 
-        when(agentAnswerCacheService.get("Git")).thenReturn(Optional.empty());
+        when(agentAnswerCacheService.get(cacheQuestion("Git"))).thenReturn(Optional.empty());
 
         when(knowledgeService.searchKnowledge(1L, "Git", 5))
                 .thenReturn(List.of(new KnowledgeListItemVO(
@@ -420,7 +427,7 @@ class AgentServiceTest {
         assertThat(logRequest.getSessionId()).isEqualTo(10L);
         assertThat(logRequest.getQuestionMessageId()).isEqualTo(301L);
         assertThat(logRequest.getAnswerMessageId()).isNull();
-        assertThat(logRequest.getModelName()).isEqualTo("mock-llm");
+        assertThat(logRequest.getModelName()).isEqualTo(TEST_MODEL_NAME);
         assertThat(logRequest.getFromCache()).isFalse();
         assertThat(logRequest.getCallStatus()).isEqualTo("FAILED");
         assertThat(logRequest.getErrorMessage()).isEqualTo("LLM unavailable");
@@ -446,7 +453,7 @@ class AgentServiceTest {
             return 1;
         });
 
-        when(agentAnswerCacheService.get("Git"))
+        when(agentAnswerCacheService.get(cacheQuestion("Git")))
                 .thenThrow(new RuntimeException("Redis unavailable"));
 
         when(knowledgeService.searchKnowledge(1L, "Git", 5))
@@ -478,7 +485,7 @@ class AgentServiceTest {
         when(llmClient.chat(any(LlmRequest.class)))
                 .thenReturn(new LlmResponse(
                         "Redis 故障时仍然返回模型回答。",
-                        "mock-llm",
+                        TEST_MODEL_NAME,
                         null,
                         null
                 ));
@@ -513,7 +520,7 @@ class AgentServiceTest {
             return 1;
         });
 
-        when(agentAnswerCacheService.get("Git")).thenReturn(Optional.empty());
+        when(agentAnswerCacheService.get(cacheQuestion("Git"))).thenReturn(Optional.empty());
 
         when(knowledgeService.searchKnowledge(1L, "Git", 5))
                 .thenReturn(List.of(new KnowledgeListItemVO(
@@ -544,7 +551,7 @@ class AgentServiceTest {
         when(llmClient.chat(any(LlmRequest.class)))
                 .thenReturn(new LlmResponse(
                         "缓存写入失败时仍然返回回答。",
-                        "mock-llm",
+                        TEST_MODEL_NAME,
                         null,
                         null
                 ));

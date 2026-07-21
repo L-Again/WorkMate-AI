@@ -3,9 +3,11 @@ package com.workmate.ai.client.impl;
 import com.workmate.ai.client.LlmClient;
 import com.workmate.ai.client.LlmRequest;
 import com.workmate.ai.client.LlmResponse;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 
 @Component
+@ConditionalOnProperty(prefix = "workmate.llm", name = "provider", havingValue = "mock", matchIfMissing = true)
 public class MockLlmClient implements LlmClient {
 
     private static final String DEFAULT_MODEL_NAME = "mock-llm";

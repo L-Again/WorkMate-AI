@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { Delete as DeleteIcon, Edit, Plus, Refresh, Search } from '@element-plus/icons-vue'
 import { listCategories, type CategoryVO } from '../api/category'
 import {
   createKnowledge,
@@ -172,7 +173,7 @@ onMounted(async () => {
         <h2>知识管理</h2>
         <p>管理员维护知识内容，知识变更后后端会清理 Redis 问答缓存。</p>
       </div>
-      <el-button type="primary" :disabled="!isAdmin" @click="openCreateDialog">新增知识</el-button>
+      <el-button type="primary" :icon="Plus" :disabled="!isAdmin" @click="openCreateDialog">新增知识</el-button>
     </div>
 
     <el-alert
@@ -193,37 +194,39 @@ onMounted(async () => {
         <el-option label="启用" :value="1" />
         <el-option label="停用" :value="0" />
       </el-select>
-      <el-button type="primary" @click="query.pageNum = 1; loadKnowledge()">查询</el-button>
-      <el-button @click="resetQuery">重置</el-button>
+      <el-button type="primary" :icon="Search" @click="query.pageNum = 1; loadKnowledge()">查询</el-button>
+      <el-button :icon="Refresh" @click="resetQuery">重置</el-button>
     </div>
 
-    <el-table v-loading="loading" :data="records" border>
-      <el-table-column prop="id" label="ID" width="80" />
-      <el-table-column prop="title" label="标题" min-width="220" show-overflow-tooltip />
-      <el-table-column prop="categoryName" label="分类" width="120" />
-      <el-table-column prop="keywords" label="关键词" min-width="220" show-overflow-tooltip />
-      <el-table-column label="状态" width="90">
-        <template #default="{ row }">
-          <el-tag :type="row.status === 1 ? 'success' : 'info'">
-            {{ row.status === 1 ? '启用' : '停用' }}
-          </el-tag>
-        </template>
-      </el-table-column>
-      <el-table-column label="更新时间" width="180">
-        <template #default="{ row }">{{ formatDate(row.updatedAt) }}</template>
-      </el-table-column>
-      <el-table-column label="操作" width="260" fixed="right">
-        <template #default="{ row }">
-          <el-button size="small" :disabled="!isAdmin" @click="openEditDialog(row)">编辑</el-button>
-          <el-button size="small" :disabled="!isAdmin" @click="toggleStatus(row)">
-            {{ row.status === 1 ? '停用' : '启用' }}
-          </el-button>
-          <el-button size="small" type="danger" :disabled="!isAdmin" @click="removeKnowledge(row)">
-            删除
-          </el-button>
-        </template>
-      </el-table-column>
-    </el-table>
+    <div class="table-surface">
+      <el-table v-loading="loading" :data="records">
+        <el-table-column prop="id" label="ID" width="80" />
+        <el-table-column prop="title" label="标题" min-width="220" show-overflow-tooltip />
+        <el-table-column prop="categoryName" label="分类" width="120" />
+        <el-table-column prop="keywords" label="关键词" min-width="220" show-overflow-tooltip />
+        <el-table-column label="状态" width="90">
+          <template #default="{ row }">
+            <el-tag :type="row.status === 1 ? 'success' : 'info'">
+              {{ row.status === 1 ? '启用' : '停用' }}
+            </el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column label="更新时间" width="180">
+          <template #default="{ row }">{{ formatDate(row.updatedAt) }}</template>
+        </el-table-column>
+        <el-table-column label="操作" width="260" fixed="right">
+          <template #default="{ row }">
+            <el-button size="small" :icon="Edit" :disabled="!isAdmin" @click="openEditDialog(row)">编辑</el-button>
+            <el-button size="small" :disabled="!isAdmin" @click="toggleStatus(row)">
+              {{ row.status === 1 ? '停用' : '启用' }}
+            </el-button>
+            <el-button size="small" type="danger" :icon="DeleteIcon" :disabled="!isAdmin" @click="removeKnowledge(row)">
+              删除
+            </el-button>
+          </template>
+        </el-table-column>
+      </el-table>
+    </div>
 
     <el-pagination
       class="admin-pagination"

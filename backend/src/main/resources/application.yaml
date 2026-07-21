@@ -1,4 +1,8 @@
 spring:
+  config:
+    import:
+      - optional:file:.env[.properties]
+      - optional:file:../.env[.properties]
   application:
     name: backend
   datasource:
@@ -19,3 +23,11 @@ mybatis-plus:
     map-underscore-to-camel-case: true
   global-config:
     banner: false
+
+workmate:
+  llm:
+    provider: ${WORKMATE_LLM_PROVIDER:mock}
+    model: ${WORKMATE_LLM_MODEL:mock-llm}
+    deepseek:
+      base-url: ${DEEPSEEK_BASE_URL:https://api.deepseek.com}
+      api-key: ${DEEPSEEK_API_KEY:}

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { Delete as DeleteIcon, Edit, Plus } from '@element-plus/icons-vue'
 import {
   createCategory,
   deleteCategory,
@@ -121,7 +122,7 @@ onMounted(loadPage)
         <h2>分类管理</h2>
         <p>管理员维护知识分类，分类停用后其知识不参与 Agent 检索。</p>
       </div>
-      <el-button type="primary" :disabled="!isAdmin" @click="openCreateDialog">新增分类</el-button>
+      <el-button type="primary" :icon="Plus" :disabled="!isAdmin" @click="openCreateDialog">新增分类</el-button>
     </div>
 
     <el-alert
@@ -133,30 +134,32 @@ onMounted(loadPage)
     />
     <el-alert v-if="errorMessage" :title="errorMessage" type="error" show-icon class="admin-alert" />
 
-    <el-table v-loading="loading" :data="categories" border>
-      <el-table-column prop="id" label="ID" width="80" />
-      <el-table-column prop="name" label="分类名称" min-width="160" />
-      <el-table-column prop="description" label="说明" min-width="260" show-overflow-tooltip />
-      <el-table-column prop="sortOrder" label="排序" width="90" />
-      <el-table-column label="状态" width="100">
-        <template #default="{ row }">
-          <el-tag :type="row.status === 1 ? 'success' : 'info'">
-            {{ row.status === 1 ? '启用' : '停用' }}
-          </el-tag>
-        </template>
-      </el-table-column>
-      <el-table-column label="操作" width="260" fixed="right">
-        <template #default="{ row }">
-          <el-button size="small" :disabled="!isAdmin" @click="openEditDialog(row)">编辑</el-button>
-          <el-button size="small" :disabled="!isAdmin" @click="toggleStatus(row)">
-            {{ row.status === 1 ? '停用' : '启用' }}
-          </el-button>
-          <el-button size="small" type="danger" :disabled="!isAdmin" @click="removeCategory(row)">
-            删除
-          </el-button>
-        </template>
-      </el-table-column>
-    </el-table>
+    <div class="table-surface">
+      <el-table v-loading="loading" :data="categories">
+        <el-table-column prop="id" label="ID" width="80" />
+        <el-table-column prop="name" label="分类名称" min-width="160" />
+        <el-table-column prop="description" label="说明" min-width="260" show-overflow-tooltip />
+        <el-table-column prop="sortOrder" label="排序" width="90" />
+        <el-table-column label="状态" width="100">
+          <template #default="{ row }">
+            <el-tag :type="row.status === 1 ? 'success' : 'info'">
+              {{ row.status === 1 ? '启用' : '停用' }}
+            </el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column label="操作" width="260" fixed="right">
+          <template #default="{ row }">
+            <el-button size="small" :icon="Edit" :disabled="!isAdmin" @click="openEditDialog(row)">编辑</el-button>
+            <el-button size="small" :disabled="!isAdmin" @click="toggleStatus(row)">
+              {{ row.status === 1 ? '停用' : '启用' }}
+            </el-button>
+            <el-button size="small" type="danger" :icon="DeleteIcon" :disabled="!isAdmin" @click="removeCategory(row)">
+              删除
+            </el-button>
+          </template>
+        </el-table-column>
+      </el-table>
+    </div>
 
     <el-dialog v-model="dialogVisible" :title="dialogTitle" width="520px">
       <el-form label-position="top">

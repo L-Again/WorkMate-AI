@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
 import { ElMessage } from 'element-plus'
+import { Edit, Refresh, Search, View } from '@element-plus/icons-vue'
 import {
   getTicketDetail,
   listAdminTickets,
@@ -30,6 +31,19 @@ const statusForm = reactive({
   status: 'PROCESSING',
   resolution: '',
 })
+const ticketStatusOptions = [
+  { label: '待处理', value: 'PENDING' },
+  { label: '处理中', value: 'PROCESSING' },
+  { label: '已解决', value: 'RESOLVED' },
+  { label: '已关闭', value: 'CLOSED' },
+]
+const adminStatusOptions = ticketStatusOptions.filter((option) => option.value !== 'PENDING')
+const ticketStatusLabelMap: Record<string, string> = {
+  PENDING: '待处理',
+  PROCESSING: '处理中',
+  RESOLVED: '已解决',
+  CLOSED: '已关闭',
+}
 
 const isAdmin = computed(() => currentUser.value?.role === 'ADMIN')
 
@@ -75,7 +89,7 @@ async function saveStatus() {
     return
   }
   if (statusForm.status === 'RESOLVED' && !statusForm.resolution.trim()) {
-    ElMessage.warning('RESOLVED 状态必须填写处理结果')
+    ElMessage.warning('已解决状态必须填写处理结果')
     return
   }
 
@@ -133,6 +147,10 @@ function statusType(status: string) {
   return 'info'
 }
 
+function statusLabel(status: string) {
+  return ticketStatusLabelMap[status] || status
+}
+
 function formatDate(value: string | null) {
   return value ? value.replace('T', ' ') : '-'
 }
@@ -158,40 +176,44 @@ onMounted(loadTickets)
 
     <div class="admin-toolbar">
       <el-select v-model="query.status" clearable placeholder="状态">
-        <el-option label="PENDING" value="PENDING" />
-        <el-option label="PROCESSING" value="PROCESSING" />
-        <el-option label="RESOLVED" value="RESOLVED" />
-        <el-option label="CLOSED" value="CLOSED" />
+        <el-option
+          v-for="option in ticketStatusOptions"
+          :key="option.value"
+          :label="option.label"
+          :value="option.value"
+        />
       </el-select>
       <el-input v-if="isAdmin" v-model="query.keyword" clearable placeholder="管理员按标题搜索" />
-      <el-button type="primary" @click="query.pageNum = 1; loadTickets()">查询</el-button>
-      <el-button @click="resetQuery">重置</el-button>
+      <el-button type="primary" :icon="Search" @click="query.pageNum = 1; loadTickets()">查询</el-button>
+      <el-button :icon="Refresh" @click="resetQuery">重置</el-button>
     </div>
 
-    <el-table v-loading="loading" :data="records" border>
-      <el-table-column prop="ticketNo" label="工单号" min-width="180" />
-      <el-table-column prop="title" label="标题" min-width="260" show-overflow-tooltip />
-      <el-table-column prop="userId" label="用户 ID" width="100" />
-      <el-table-column label="状态" width="130">
-        <template #default="{ row }">
-          <el-tag :type="statusType(row.status)">{{ row.status }}</el-tag>
-        </template>
-      </el-table-column>
-      <el-table-column label="创建时间" width="180">
-        <template #default="{ row }">{{ formatDate(row.createdAt) }}</template>
-      </el-table-column>
-      <el-table-column label="更新时间" width="180">
-        <template #default="{ row }">{{ formatDate(row.updatedAt) }}</template>
-      </el-table-column>
-      <el-table-column label="操作" width="180" fixed="right">
-        <template #default="{ row }">
-          <el-button size="small" @click="openDetail(row)">详情</el-button>
-          <el-button size="small" type="primary" :disabled="!isAdmin" @click="openStatusDialog(row)">
-            处理
-          </el-button>
-        </template>
-      </el-table-column>
-    </el-table>
+    <div class="table-surface">
+      <el-table v-loading="loading" :data="records">
+        <el-table-column prop="ticketNo" label="工单号" min-width="180" />
+        <el-table-column prop="title" label="标题" min-width="260" show-overflow-tooltip />
+        <el-table-column prop="userId" label="用户 ID" width="100" />
+        <el-table-column label="状态" width="130">
+          <template #default="{ row }">
+            <el-tag :type="statusType(row.status)">{{ statusLabel(row.status) }}</el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column label="创建时间" width="180">
+          <template #default="{ row }">{{ formatDate(row.createdAt) }}</template>
+        </el-table-column>
+        <el-table-column label="更新时间" width="180">
+          <template #default="{ row }">{{ formatDate(row.updatedAt) }}</template>
+        </el-table-column>
+        <el-table-column label="操作" width="180" fixed="right">
+          <template #default="{ row }">
+            <el-button size="small" :icon="View" @click="openDetail(row)">详情</el-button>
+            <el-button size="small" type="primary" :icon="Edit" :disabled="!isAdmin" @click="openStatusDialog(row)">
+              处理
+            </el-button>
+          </template>
+        </el-table-column>
+      </el-table>
+    </div>
 
     <el-pagination
       class="admin-pagination"
@@ -205,7 +227,7 @@ onMounted(loadTickets)
     <el-dialog v-model="detailVisible" title="工单详情" width="720px">
       <el-descriptions v-if="selectedTicket" :column="2" border>
         <el-descriptions-item label="工单号">{{ selectedTicket.ticketNo }}</el-descriptions-item>
-        <el-descriptions-item label="状态">{{ selectedTicket.status }}</el-descriptions-item>
+        <el-descriptions-item label="状态">{{ statusLabel(selectedTicket.status) }}</el-descriptions-item>
         <el-descriptions-item label="用户 ID">{{ selectedTicket.userId }}</el-descriptions-item>
         <el-descriptions-item label="会话 ID">{{ selectedTicket.sessionId || '-' }}</el-descriptions-item>
         <el-descriptions-item label="标题" :span="2">{{ selectedTicket.title }}</el-descriptions-item>
@@ -226,9 +248,12 @@ onMounted(loadTickets)
       <el-form label-position="top">
         <el-form-item label="目标状态">
           <el-select v-model="statusForm.status">
-            <el-option label="PROCESSING" value="PROCESSING" />
-            <el-option label="RESOLVED" value="RESOLVED" />
-            <el-option label="CLOSED" value="CLOSED" />
+            <el-option
+              v-for="option in adminStatusOptions"
+              :key="option.value"
+              :label="option.label"
+              :value="option.value"
+            />
           </el-select>
         </el-form-item>
         <el-form-item label="处理结果">

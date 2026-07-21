@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { ElMessage } from 'element-plus'
+import { Plus, Promotion, Tickets } from '@element-plus/icons-vue'
 import { chatWithAgent, type AgentAnswerVO } from '../api/agent'
 import { createSession, listMessages, listSessions, type MessageVO, type SessionListVO } from '../api/chat'
 import { createTicket } from '../api/ticket'
@@ -163,7 +164,7 @@ onMounted(loadSessions)
     <aside class="session-panel">
       <div class="panel-title-row">
         <h2>会话</h2>
-        <el-button type="primary" size="small" @click="handleCreateSession">新建</el-button>
+        <el-button type="primary" size="small" :icon="Plus" @click="handleCreateSession">新建</el-button>
       </div>
 
       <el-skeleton v-if="loadingSessions" :rows="5" animated />
@@ -178,7 +179,9 @@ onMounted(loadSessions)
           type="button"
           @click="handleSelectSession(session.sessionId)"
         >
-          <span class="session-title">{{ session.title }}</span>
+          <span class="session-title">
+            <span>{{ session.title }}</span>
+          </span>
           <span class="session-message">{{ session.lastMessage || '暂无消息' }}</span>
           <span class="session-time">{{ formatDate(session.lastMessageAt || session.createdAt) }}</span>
         </button>
@@ -191,7 +194,7 @@ onMounted(loadSessions)
       <div class="conversation-header">
         <div>
           <h2>{{ selectedSession?.title || 'Agent 聊天' }}</h2>
-          <p>基于企业知识库回答，知识不足时可创建人工工单。</p>
+          <p>企业知识库问答工作台</p>
         </div>
         <el-tag v-if="lastAnswer?.fromCache" type="success">缓存命中</el-tag>
       </div>
@@ -207,6 +210,7 @@ onMounted(loadSessions)
           :class="message.role === 'USER' ? 'message-user' : 'message-assistant'"
         >
           <div class="message-meta">
+            <span class="message-avatar">{{ message.role === 'USER' ? '我' : 'AI' }}</span>
             <strong>{{ message.role === 'USER' ? '我' : 'WorkMate AI' }}</strong>
             <span>{{ formatDate(message.createdAt) }}</span>
             <el-tag v-if="message.fromCache === 1" size="small" type="success">缓存</el-tag>
@@ -229,7 +233,7 @@ onMounted(loadSessions)
         />
         <div class="question-actions">
           <span>支持 Ctrl/Command + Enter 发送</span>
-          <el-button type="primary" :loading="sending" @click="handleSendQuestion">发送</el-button>
+          <el-button type="primary" :icon="Promotion" :loading="sending" @click="handleSendQuestion">发送</el-button>
         </div>
       </div>
     </section>
@@ -238,7 +242,7 @@ onMounted(loadSessions)
       <div class="info-block">
         <div class="panel-title-row">
           <h2>引用知识</h2>
-          <el-button v-if="canCreateTicket" type="warning" size="small" @click="openTicketDialog">
+          <el-button v-if="canCreateTicket" type="warning" size="small" :icon="Tickets" @click="openTicketDialog">
             创建工单
           </el-button>
         </div>

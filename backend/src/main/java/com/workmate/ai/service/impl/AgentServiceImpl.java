@@ -25,6 +25,7 @@ import com.workmate.ai.vo.KnowledgeDetailVO;
 import com.workmate.ai.vo.KnowledgeListItemVO;
 import com.workmate.ai.vo.KnowledgeReferenceVO;
 import com.workmate.ai.vo.PromptKnowledgeItem;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import com.workmate.ai.dto.ModelCallLogCreateDTO;
 import com.workmate.ai.service.ModelCallLogService;
@@ -44,7 +45,7 @@ public class AgentServiceImpl implements AgentService {
     private static final int CAN_CREATE_TICKET = 1;
     private static final String USER_ROLE = "USER";
     private static final String ASSISTANT_ROLE = "ASSISTANT";
-    private static final String MOCK_MODEL_NAME = "mock-llm";
+    private static final String DEFAULT_MODEL_NAME = "mock-llm";
     private static final String INSUFFICIENT_KNOWLEDGE_ANSWER = "当前知识库中没有找到可靠内容。你可以创建人工咨询工单。";
     private static final String LOG_STATUS_CACHE_HIT = "CACHE_HIT";
     private static final String LOG_STATUS_SUCCESS = "SUCCESS";
@@ -60,6 +61,7 @@ public class AgentServiceImpl implements AgentService {
     private final LlmClient llmClient;
     private final AgentAnswerCacheService agentAnswerCacheService;
     private final ModelCallLogService modelCallLogService;
+    private final String llmModelName;
 
     public AgentServiceImpl(SysUserMapper sysUserMapper,
                             ChatSessionMapper chatSessionMapper,
@@ -69,7 +71,8 @@ public class AgentServiceImpl implements AgentService {
                             PromptBuilder promptBuilder,
                             LlmClient llmClient,
                             AgentAnswerCacheService agentAnswerCacheService,
-                            ModelCallLogService modelCallLogService) {
+                            ModelCallLogService modelCallLogService,
+                            @Value("${workmate.llm.model:mock-llm}") String llmModelName) {
         this.sysUserMapper = sysUserMapper;
         this.chatSessionMapper = chatSessionMapper;
         this.chatMessageMapper = chatMessageMapper;
@@ -79,6 +82,7 @@ public class AgentServiceImpl implements AgentService {
         this.llmClient = llmClient;
         this.agentAnswerCacheService = agentAnswerCacheService;
         this.modelCallLogService = modelCallLogService;
+        this.llmModelName = normalizeModelName(llmModelName);
     }
 
     @Override
@@ -219,7 +223,7 @@ public class AgentServiceImpl implements AgentService {
 
         LlmResponse llmResponse;
         try {
-            llmResponse = llmClient.chat(new LlmRequest(MOCK_MODEL_NAME, prompt));
+            llmResponse = llmClient.chat(new LlmRequest(llmModelName, prompt));
         } catch (RuntimeException exception) {
             traceSteps.add(new AgentTraceStepVO(
                     "LLM_CALL",
@@ -232,7 +236,7 @@ public class AgentServiceImpl implements AgentService {
                     request.getSessionId(),
                     questionMessage.getId(),
                     null,
-                    MOCK_MODEL_NAME,
+                    llmModelName,
                     false,
                     LOG_STATUS_FAILED,
                     startTimeMillis,
@@ -369,7 +373,7 @@ public class AgentServiceImpl implements AgentService {
 
     private Optional<AgentAnswerCacheValue> getCachedAnswer(String question) {
         try {
-            return agentAnswerCacheService.get(question);
+            return agentAnswerCacheService.get(buildModelScopedCacheQuestion(question));
         } catch (RuntimeException exception) {
             return Optional.empty();
         }
@@ -377,10 +381,14 @@ public class AgentServiceImpl implements AgentService {
 
     private void saveAnswerCache(String question, AgentAnswerCacheValue cacheValue) {
         try {
-            agentAnswerCacheService.save(question, cacheValue);
+            agentAnswerCacheService.save(buildModelScopedCacheQuestion(question), cacheValue);
         } catch (RuntimeException exception) {
             // Redis cache failure must not block the Agent answer.
         }
+    }
+
+    private String buildModelScopedCacheQuestion(String question) {
+        return "model=" + llmModelName + "\nquestion=" + question;
     }
 
     private void saveKnowledgeReferences(Long answerMessageId, List<KnowledgeListItemVO> knowledgeList) {
@@ -435,5 +443,12 @@ public class AgentServiceImpl implements AgentService {
             return "";
         }
         return question.trim().replaceAll("\\s+", " ");
+    }
+
+    private String normalizeModelName(String modelName) {
+        if (modelName == null || modelName.trim().isEmpty()) {
+            return DEFAULT_MODEL_NAME;
+        }
+        return modelName.trim();
     }
 }

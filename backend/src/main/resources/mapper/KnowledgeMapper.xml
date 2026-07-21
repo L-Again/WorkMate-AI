@@ -91,6 +91,11 @@
             k.title LIKE CONCAT('%', #{keyword}, '%')
             OR k.keywords LIKE CONCAT('%', #{keyword}, '%')
             OR k.content LIKE CONCAT('%', #{keyword}, '%')
+            OR #{keyword} LIKE CONCAT('%', NULLIF(TRIM(SUBSTRING_INDEX(k.keywords, ',', 1)), ''), '%')
+            OR #{keyword} LIKE CONCAT('%', NULLIF(TRIM(SUBSTRING_INDEX(SUBSTRING_INDEX(k.keywords, ',', 2), ',', -1)), ''), '%')
+            OR #{keyword} LIKE CONCAT('%', NULLIF(TRIM(SUBSTRING_INDEX(SUBSTRING_INDEX(k.keywords, ',', 3), ',', -1)), ''), '%')
+            OR #{keyword} LIKE CONCAT('%', NULLIF(TRIM(SUBSTRING_INDEX(SUBSTRING_INDEX(k.keywords, ',', 4), ',', -1)), ''), '%')
+            OR #{keyword} LIKE CONCAT('%', NULLIF(TRIM(SUBSTRING_INDEX(SUBSTRING_INDEX(k.keywords, ',', 5), ',', -1)), ''), '%')
             )
         </if>
         ORDER BY k.updated_at DESC, k.id DESC
